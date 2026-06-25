@@ -1,0 +1,4 @@
+# Dependencies for Voice Assistant
+# E.g.
+# openai
+# sounddevice

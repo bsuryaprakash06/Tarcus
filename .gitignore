@@ -1,0 +1,35 @@
+# Virtual environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python cache and temporary files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# User configurations and credentials
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+*.private
+
+# Local model cache
+models/
+
+# Application logs
+logs/*.log
+logs/voice_assistant.log
+
+# Temporary assets and recordings
+assets/recordings/*.wav
+!assets/recordings/.gitkeep
+!assets/sounds/.gitkeep
+
+# OS generated files
+.DS_Store
+Thumbs.db
