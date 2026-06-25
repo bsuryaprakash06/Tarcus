@@ -27,6 +27,11 @@ DEFAULT_RECORD_DURATION = 5
 # Speech-to-Text Settings
 WHISPER_MODEL_NAME = "base"
 
+# Text-to-Speech Settings
+VOICE_NAME = "en-US-AriaNeural"
+VOICE_RATE = "+0%"
+VOICE_VOLUME = "+0%"
+
 # Ensure runtime directories exist
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
 SOUNDS_DIR.mkdir(parents=True, exist_ok=True)

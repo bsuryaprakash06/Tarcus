@@ -27,6 +27,7 @@ logs/voice_assistant.log
 
 # Temporary assets and recordings
 assets/recordings/*.wav
+assets/sounds/*.mp3
 !assets/recordings/.gitkeep
 !assets/sounds/.gitkeep
 

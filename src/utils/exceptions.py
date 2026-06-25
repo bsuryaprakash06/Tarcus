@@ -9,3 +9,11 @@ class RecordingError(VoiceAssistantError):
 class TranscriptionError(VoiceAssistantError):
     """Exception raised when audio transcription fails."""
     pass
+
+class TTSError(VoiceAssistantError):
+    """Exception raised when Text-to-Speech generation fails."""
+    pass
+
+class AudioPlaybackError(VoiceAssistantError):
+    """Exception raised when audio playback fails."""
+    pass
