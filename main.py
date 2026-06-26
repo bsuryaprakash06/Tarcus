@@ -7,7 +7,11 @@ from src.utils.startup import run_startup_checks
 from src.services.voice_service import VoiceService
 from src.services.tts_service import TTSService
 from src.services.response_service import ResponseService, ResponseMode
+from src.services.llm_service import LLMService
+from src.services.executor_service import ExecutorService
+from src.safety.validator import SafetyValidator, SafetyError
 from src.models.transcription import TranscriptionResult
+from src.models.plan import ExecutionPlan, ToolResult
 
 # Configure UTF-8 encoding on standard output/error to prevent UnicodeEncodeErrors with emojis on Windows.
 if hasattr(sys.stdout, "reconfigure"):
@@ -24,6 +28,9 @@ console = Console()
 voice_service = VoiceService()
 tts_service = TTSService()
 response_service = ResponseService()
+llm_service = LLMService()
+executor_service = ExecutorService()
+safety_validator = SafetyValidator()
 
 def print_banner():
     console.print("[bold cyan]=================================[/bold cyan]")
@@ -39,16 +46,30 @@ def listen() -> TranscriptionResult:
     console.print("[bold red]🎤 Recording...[/bold red]")
     return voice_service.listen()
 
-def understand(transcription_text: str) -> str:
+def understand(user_command: str) -> ExecutionPlan:
     """
-    Step 2: understand() - determines what should happen and formulates responses.
-    (Currently routes directly to ResponseService; in Milestone 3, this will call the LLM Planner).
+    Step 2: understand() - generates a structured execution plan from the user command using the LLM Planner.
     """
-    return response_service.formulate_response(transcription_text, ResponseMode.SUCCESS)
+    console.print("[bold yellow]⚙️ Processing...[/bold yellow]")
+    return llm_service.generate_plan(user_command)
+
+def validate_safety(plan: ExecutionPlan) -> bool:
+    """
+    Step 2.5: validate_safety() - validates the plan safety levels.
+    Raises SafetyError if any restricted/blocked tools are requested.
+    Returns True if any confirm-required tools are requested, otherwise False.
+    """
+    return safety_validator.validate_plan(plan)
+
+def execute(plan: ExecutionPlan) -> list[ToolResult]:
+    """
+    Step 3: execute() - runs the sequence of planned tool calls.
+    """
+    return executor_service.execute_plan(plan)
 
 def respond(response_text: str) -> None:
     """
-    Step 3: respond() - outputs response to console and speaks it using the text-to-speech engine.
+    Step 4: respond() - outputs response to console and speaks it using the text-to-speech engine.
     """
     console.print()
     console.print("[bold magenta]Tarcus:[/bold magenta]")
@@ -76,22 +97,58 @@ def main():
             console.print("[bold green]✅ You said:[/bold green]")
             console.print(f"[bold white]{result.text if result.text else '(Silence)'}[/bold white]")
             
-            # 2. Understand
-            status = AssistantStatus.PROCESSING
-            response_text = understand(result.text)
+            if not result.text.strip():
+                # Handle empty input
+                response_text = response_service.formulate_response("", ResponseMode.SUCCESS)
+                respond(response_text)
+                status = AssistantStatus.IDLE
+                console.print()
+                continue
             
-            # 3. Respond
-            status = AssistantStatus.COMPLETED
-            respond(response_text)
+            try:
+                # 2. Understand
+                status = AssistantStatus.PROCESSING
+                plan = understand(result.text)
+                
+                # 2.5. Safety check
+                needs_confirm = validate_safety(plan)
+                
+                if needs_confirm:
+                    console.print("[bold yellow]⚠️ Safety Warning: This action requires user confirmation.[/bold yellow]")
+                    confirm = console.input("[bold yellow]Do you want to proceed? (y/n): [/bold yellow]").strip().lower()
+                    if confirm not in ("y", "yes"):
+                        console.print("[bold yellow]Execution cancelled for safety.[/bold yellow]")
+                        response_text = response_service.formulate_response("I cancelled the action for safety.", ResponseMode.WARNING)
+                        respond(response_text)
+                        status = AssistantStatus.IDLE
+                        console.print()
+                        continue
+                
+                # 3. Execute
+                status = AssistantStatus.PROCESSING
+                results = execute(plan)
+                
+                # 4. Respond
+                status = AssistantStatus.COMPLETED
+                response_text = response_service.formulate_execution_response(results)
+                respond(response_text)
+                
+            except SafetyError as se:
+                status = AssistantStatus.ERROR
+                console.print(f"\n[bold red]Safety Error: {se}[/bold red]")
+                response_text = response_service.formulate_response(str(se), ResponseMode.ERROR)
+                respond(response_text)
+            except Exception as e:
+                status = AssistantStatus.ERROR
+                logger.error(f"Error during planning or execution: {e}")
+                console.print(f"\n[bold red]Error: {e}[/bold red]")
+                response_text = response_service.formulate_response("I encountered an issue while processing your command.", ResponseMode.ERROR)
+                respond(response_text)
             
             # Ready again
             status = AssistantStatus.IDLE
             console.print()
             
-    except VoiceAssistantError as vae:
-        status = AssistantStatus.ERROR
-        console.print(f"\n[bold red]Error: {vae}[/bold red]")
-        sys.exit(1)
     except KeyboardInterrupt:
         status = AssistantStatus.IDLE
         console.print("\n[bold yellow]Operation cancelled by user.[/bold yellow]")

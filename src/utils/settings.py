@@ -32,6 +32,10 @@ VOICE_NAME = "en-US-AriaNeural"
 VOICE_RATE = "+0%"
 VOICE_VOLUME = "+0%"
 
+# Ollama LLM Settings
+OLLAMA_API_URL = "http://localhost:11434/api/chat"
+OLLAMA_MODEL = "qwen3:4b"
+
 # Ensure runtime directories exist
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
 SOUNDS_DIR.mkdir(parents=True, exist_ok=True)

@@ -17,3 +17,15 @@ class TTSError(VoiceAssistantError):
 class AudioPlaybackError(VoiceAssistantError):
     """Exception raised when audio playback fails."""
     pass
+
+class PlanningError(VoiceAssistantError):
+    """Exception raised when LLM planning or parsing fails."""
+    pass
+
+class ExecutionError(VoiceAssistantError):
+    """Exception raised when tool execution fails."""
+    pass
+
+class SafetyError(VoiceAssistantError):
+    """Exception raised when execution violates safety rules."""
+    pass
