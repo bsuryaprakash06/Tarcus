@@ -45,7 +45,19 @@ API_KEY = os.environ.get("API_KEY", "")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 BASE_URL = os.environ.get("BASE_URL", "")
+
+# Feature Flags
 DRY_RUN = os.environ.get("DRY_RUN", "False").lower() == "true"
+DEBUG_MODE = os.environ.get("DEBUG_MODE", "False").lower() == "true"
+ENABLE_DIAGNOSTICS = os.environ.get("ENABLE_DIAGNOSTICS", "True").lower() == "true"
+ENABLE_METRICS = os.environ.get("ENABLE_METRICS", "True").lower() == "true"
+VOICE_ACTIVITY_ENABLED = os.environ.get("VOICE_ACTIVITY_ENABLED", "True").lower() == "true"
+
+# Audio Recording & VAD Constants
+MAX_RECORDING_SECONDS = float(os.environ.get("MAX_RECORDING_SECONDS", "15.0"))
+SILENCE_TIMEOUT_SECONDS = float(os.environ.get("SILENCE_TIMEOUT_SECONDS", "1.5"))
+MIN_SPEECH_SECONDS = float(os.environ.get("MIN_SPEECH_SECONDS", "0.5"))
+MIC_ENERGY_THRESHOLD = float(os.environ.get("MIC_ENERGY_THRESHOLD", "0.01"))
 
 # Automatic Fallback: If Groq is primary but no valid API key is present, fallback to local Ollama (Llama)
 if LLM_PROVIDER == "groq":

@@ -1,20 +1,24 @@
+import time
 from datetime import datetime
 from pathlib import Path
+import numpy as np
 import sounddevice as sd
 from scipy.io import wavfile
 from src.utils.settings import RECORDINGS_DIR, SAMPLE_RATE, CHANNELS
 from src.utils.logger import get_logger
 from src.utils.exceptions import RecordingError
+from src.voice.voice_activity_detector import VoiceActivityDetector
 
 logger = get_logger("recorder")
 
 def record_audio(duration: int = 5) -> Path:
     """
-    Records audio from the microphone for the specified duration
-    and saves it to a timestamped WAV file in the recordings directory.
+    Records audio from the microphone dynamically using VAD, falling back to 
+    a maximum duration if VAD is disabled.
+    Saves it to a timestamped WAV file in the recordings directory.
     
     Args:
-        duration: The duration of the recording in seconds.
+        duration: Kept for backward compatibility, but overridden by VAD settings.
         
     Returns:
         Path: The file path where the recording is saved.
@@ -23,18 +27,38 @@ def record_audio(duration: int = 5) -> Path:
         RecordingError: If recording or saving the file fails.
     """
     try:
-        logger.info(f"Starting recording for {duration} seconds...")
+        vad = VoiceActivityDetector()
+        audio_frames = []
+
+        def audio_callback(indata, frames, time_info, status):
+            if status:
+                logger.warning(f"Audio stream status: {status}")
+            
+            # Copy the frame data because indata memory is reused
+            audio_frames.append(indata.copy())
+            vad.process_frame(indata)
+
+        logger.info("Starting audio stream recording...")
         
-        # sd.rec records audio from default input device
-        recording = sd.rec(
-            int(duration * SAMPLE_RATE),
+        # Start the InputStream
+        with sd.InputStream(
             samplerate=SAMPLE_RATE,
             channels=CHANNELS,
-            dtype="int16"
-        )
-        sd.wait()  # Block until the recording is finished
+            dtype="int16",
+            callback=audio_callback
+        ):
+            # Block the main thread while the VAD determines we should continue
+            while vad.should_continue():
+                time.sleep(0.1)
+
         logger.info("Recording finished.")
         
+        if not audio_frames:
+            raise RecordingError("No audio frames were captured.")
+            
+        # Concatenate all frames into a single numpy array
+        recording = np.concatenate(audio_frames, axis=0)
+
         # Generate timestamped filename
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         output_path = RECORDINGS_DIR / f"{timestamp}.wav"
