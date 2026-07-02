@@ -32,9 +32,12 @@ VOICE_NAME = "en-US-AriaNeural"
 VOICE_RATE = "+0%"
 VOICE_VOLUME = "+0%"
 
-# Ollama LLM Settings
-OLLAMA_API_URL = "http://localhost:11434/api/chat"
-OLLAMA_MODEL = "qwen3:4b"
+# LLM Provider Configuration
+import os
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "ollama").lower()
+MODEL_NAME = os.environ.get("MODEL_NAME", "qwen3:4b")
+API_KEY = os.environ.get("API_KEY", "")
+BASE_URL = os.environ.get("BASE_URL", "")
 
 # Ensure runtime directories exist
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)

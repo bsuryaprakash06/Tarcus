@@ -36,7 +36,7 @@ class SearchWebTool(BaseTool):
     def category(self) -> str:
         return "Browser"
 
-    def execute(self, arguments: dict, context: ExecutionContext) -> ToolResult:
+    def execute(self, arguments: dict, context: ExecutionContext = None) -> ToolResult:
         start_time = time.time()
         query = arguments.get("query", "").strip()
         if not query:

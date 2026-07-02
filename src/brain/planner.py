@@ -1,65 +1,71 @@
-import requests
 from src.brain.prompt_builder import PromptBuilder
 from src.brain.parser import parse_execution_plan
 from src.models.plan import ExecutionPlan
 from src.tools.registry import ToolRegistry
-from src.utils.settings import OLLAMA_API_URL, OLLAMA_MODEL
+from src.providers import BaseProvider, get_provider_from_settings
 from src.utils.logger import get_logger
 from src.utils.exceptions import PlanningError
 
 logger = get_logger("brain.planner")
 
 class Planner:
-    """The planning engine representing the LLM brain of the assistant."""
+    """The planning engine coordinating system prompting, LLM query routing, parsing, and validation checks."""
     
-    def __init__(self, tool_registry: ToolRegistry = None):
+    def __init__(self, provider: BaseProvider = None, tool_registry: ToolRegistry = None):
         self.registry = tool_registry or ToolRegistry()
         self.prompt_builder = PromptBuilder(self.registry)
+        self.provider = provider or get_provider_from_settings()
 
     def plan(self, user_command: str) -> ExecutionPlan:
         """
-        Queries the Qwen3 model on local Ollama, parses, and validates the execution plan.
-        Retries up to 3 times if plan validation fails.
+        Queries the configured LLM provider, validates the plan against Pydantic
+        and semantic registry constraints, and executes smart retries with error feedback.
         """
         system_prompt = self.prompt_builder.build_prompt()
-        
         max_retries = 3
         last_error = None
+        current_user_prompt = user_command
         
         for attempt in range(1, max_retries + 1):
-            logger.info(f"Generating plan, attempt {attempt}/{max_retries}...")
+            logger.info(f"Generating plan via '{self.provider.provider_name}', attempt {attempt}/{max_retries}...")
+            
+            # Incorporate error feedback if retrying
+            if attempt > 1 and last_error:
+                current_user_prompt = (
+                    f"{user_command}\n\n"
+                    f"⚠️ CRITICAL: Your previous plan failed validation check:\n"
+                    f"\"{str(last_error)}\"\n"
+                    f"Please correct the issue and return ONLY a valid raw JSON plan matching the requested schema."
+                )
+
             try:
-                payload = {
-                    "model": OLLAMA_MODEL,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_command}
-                    ],
-                    "stream": False,
-                    "options": {
-                        "temperature": 0.0,  # Deterministic execution plan
-                        "thinking": False
-                    },
-                    "think": False  # Disable reasoning thinking block output
-                }
+                # Call provider (decoupled from prompting / network details)
+                response = self.provider.generate(system_prompt, current_user_prompt)
                 
-                response = requests.post(OLLAMA_API_URL, json=payload, timeout=90)
-                if response.status_code != 200:
-                    raise PlanningError(f"Ollama server returned HTTP {response.status_code}: {response.text}")
-                    
-                result_json = response.json()
-                raw_response = result_json.get("message", {}).get("content", "")
+                # Perform 3-stage validation (syntax, schema, semantics)
+                execution_plan = parse_execution_plan(response.text, self.registry)
                 
-                # Clean and validate the plan against Pydantic schema
-                execution_plan = parse_execution_plan(raw_response)
-                logger.info(f"Plan validation succeeded on attempt {attempt}.")
+                # Detailed architectural performance logging
+                logger.info("Plan generation and validation succeeded.")
+                logger.info(f"  Provider: {response.provider_name.capitalize()}")
+                logger.info(f"  Model: {response.model_name}")
+                logger.info(f"  Latency: {response.latency * 1000:.0f} ms")
+                logger.info(f"  Validation: Passed")
+                logger.info(f"  Retry Count: {attempt - 1}")
+                if response.usage:
+                    logger.info(f"  Usage: {response.usage}")
+                
                 return execution_plan
                 
-            except PlanningError as pe:
-                logger.warning(f"Attempt {attempt} failed plan validation: {pe}")
-                last_error = pe
             except Exception as e:
-                logger.warning(f"Attempt {attempt} unexpected error: {e}")
-                last_error = PlanningError(str(e))
+                last_error = e
+                logger.warning(
+                    f"Attempt {attempt} failed generation or validation: {e}. "
+                    f"Provider: {self.provider.provider_name.capitalize()}, "
+                    f"Model: {getattr(self.provider, 'model_name', 'unknown')}"
+                )
                 
-        raise PlanningError(f"Failed to generate a valid execution plan after {max_retries} attempts. Last error: {last_error}")
+        raise PlanningError(
+            f"Failed to generate a valid execution plan after {max_retries} attempts. "
+            f"Last error: {last_error}"
+        )

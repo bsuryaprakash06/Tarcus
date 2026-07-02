@@ -52,6 +52,6 @@ class BaseTool(ABC):
         pass
 
     @abstractmethod
-    def execute(self, arguments: dict, context: ExecutionContext) -> ToolResult:
-        """Executes the tool with the given arguments and context."""
+    def execute(self, arguments: dict, context: ExecutionContext = None) -> ToolResult:
+        """Executes the tool with the given arguments and optional context."""
         pass

@@ -25,6 +25,7 @@ class CreateFolderTool(BaseTool):
             },
             "location": {
                 "type": "string",
+                "enum": ["documents", "root"],
                 "description": "Abstract target folder location. Supported values: 'documents' (maps to the workspace documents directory), 'root' (maps to project root)."
             }
         }
@@ -41,7 +42,7 @@ class CreateFolderTool(BaseTool):
     def category(self) -> str:
         return "Files"
 
-    def execute(self, arguments: dict, context: ExecutionContext) -> ToolResult:
+    def execute(self, arguments: dict, context: ExecutionContext = None) -> ToolResult:
         start_time = time.time()
         folder_name = arguments.get("name", "").strip()
         location_key = arguments.get("location", "documents").strip().lower()
@@ -50,12 +51,9 @@ class CreateFolderTool(BaseTool):
             duration = time.time() - start_time
             return ToolResult(tool_name=self.name, success=False, message="Folder name argument is missing or empty.", duration=duration)
 
-        # Resolve abstract location using the current execution context path (or fallback to context.cwd)
-        # Note: the prompt says context contains cwd, which is the project root (Voice-Assistant).
-        # We can resolve:
-        # - 'root' -> maps to context.cwd
-        # - 'documents' (or default) -> maps to parent of context.cwd (which is C:\Users\Shane\Documents\Windows-Automation-1)
-        base_path = Path(context.cwd)
+        # Resolve abstract location using the current execution context path (or fallback to context.cwd or os.getcwd())
+        cwd = context.cwd if context else os.getcwd()
+        base_path = Path(cwd)
         if location_key != "root":
             base_path = base_path.parent
 

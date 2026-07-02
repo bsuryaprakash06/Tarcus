@@ -103,5 +103,30 @@ class TestTools(unittest.TestCase):
         self.assertFalse(result.success)
         self.assertIn("missing or empty", result.message)
 
+    @patch("subprocess.Popen")
+    @patch("webbrowser.open")
+    def test_execute_without_context(self, mock_web_open, mock_popen):
+        # 1. OpenApplicationTool
+        app_tool = OpenApplicationTool()
+        res_app = app_tool.execute({"application": "calc"})
+        self.assertTrue(res_app.success)
+        mock_popen.assert_called_once_with("start calc", shell=True)
+
+        # 2. SearchWebTool
+        web_tool = SearchWebTool()
+        res_web = web_tool.execute({"query": "weather"})
+        self.assertTrue(res_web.success)
+        mock_web_open.assert_called_once_with("https://www.google.com/search?q=weather")
+
+        # 3. CreateFolderTool (uses os.getcwd() fallback)
+        folder_tool = CreateFolderTool()
+        temp_root = tempfile.mkdtemp()
+        # Temporarily patch os.getcwd
+        with patch("os.getcwd", return_value=temp_root):
+            res_folder = folder_tool.execute({"name": "test_folder", "location": "root"})
+            self.assertTrue(res_folder.success)
+            self.assertTrue((Path(temp_root) / "test_folder").exists())
+            shutil.rmtree(temp_root)
+
 if __name__ == "__main__":
     unittest.main()

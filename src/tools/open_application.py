@@ -37,7 +37,7 @@ class OpenApplicationTool(BaseTool):
     def category(self) -> str:
         return "System"
 
-    def execute(self, arguments: dict, context: ExecutionContext) -> ToolResult:
+    def execute(self, arguments: dict, context: ExecutionContext = None) -> ToolResult:
         start_time = time.time()
         app_name = arguments.get("application", "").strip()
         if not app_name:
