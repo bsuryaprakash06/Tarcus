@@ -6,6 +6,8 @@ from src.utils.logger import get_logger
 
 logger = get_logger("tool.search_web")
 
+from src.utils.settings import DRY_RUN
+
 class SearchWebTool(BaseTool):
     @property
     def name(self) -> str:
@@ -48,6 +50,17 @@ class SearchWebTool(BaseTool):
         try:
             # Construct Google search URL
             url = f"https://www.google.com/search?q={query}"
+            
+            if DRY_RUN:
+                logger.info(f"[DRY RUN] Would search the web for: {query}")
+                return ToolResult(
+                    tool_name=self.name,
+                    success=True,
+                    message=f"Would search the web for {query}.",
+                    duration=time.time() - start_time,
+                    data={"query": query, "url": url, "dry_run": True}
+                )
+
             webbrowser.open(url)
             duration = time.time() - start_time
             return ToolResult(

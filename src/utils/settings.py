@@ -34,10 +34,24 @@ VOICE_VOLUME = "+0%"
 
 # LLM Provider Configuration
 import os
-LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "ollama").lower()
-MODEL_NAME = os.environ.get("MODEL_NAME", "qwen3:4b")
+from dotenv import load_dotenv
+
+# Load environment variables from .env file in project root
+load_dotenv(PROJECT_ROOT / ".env")
+
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "groq").lower()
+MODEL_NAME = os.environ.get("MODEL_NAME", "")
 API_KEY = os.environ.get("API_KEY", "")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 BASE_URL = os.environ.get("BASE_URL", "")
+DRY_RUN = os.environ.get("DRY_RUN", "False").lower() == "true"
+
+# Automatic Fallback: If Groq is primary but no valid API key is present, fallback to local Ollama (Llama)
+if LLM_PROVIDER == "groq":
+    _active_key = GROQ_API_KEY or API_KEY
+    if not _active_key or "your_" in _active_key.lower():
+        LLM_PROVIDER = "ollama"
 
 # Ensure runtime directories exist
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)

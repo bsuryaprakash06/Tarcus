@@ -10,7 +10,7 @@ class OllamaProvider(BaseProvider):
     """Ollama backend provider integration."""
 
     def __init__(self):
-        self.model_name = MODEL_NAME
+        self.model_name = MODEL_NAME or "qwen3:4b"
         self.base_url = BASE_URL or "http://localhost:11434/api/chat"
         # If user passed only the host, construct the chat endpoint
         if "/api/chat" not in self.base_url and "/v1" not in self.base_url:

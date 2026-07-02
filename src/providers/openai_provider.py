@@ -1,7 +1,7 @@
 import time
 import requests
 from src.providers.base_provider import BaseProvider, ProviderResponse
-from src.utils.settings import MODEL_NAME, API_KEY, BASE_URL
+from src.utils.settings import MODEL_NAME, OPENAI_API_KEY, API_KEY, BASE_URL
 from src.utils.logger import get_logger
 
 logger = get_logger("providers.openai")
@@ -12,7 +12,9 @@ class OpenAIProvider(BaseProvider):
     def __init__(self):
         self.model_name = MODEL_NAME or "gpt-4o"
         self.base_url = BASE_URL or "https://api.openai.com/v1/chat/completions"
-        self.api_key = API_KEY
+        if not self.base_url.endswith("/chat/completions"):
+            self.base_url = self.base_url.rstrip("/") + "/chat/completions"
+        self.api_key = OPENAI_API_KEY or API_KEY
 
     @property
     def provider_name(self) -> str:

@@ -6,6 +6,8 @@ from src.utils.logger import get_logger
 
 logger = get_logger("tool.open_application")
 
+from src.utils.settings import DRY_RUN
+
 class OpenApplicationTool(BaseTool):
     @property
     def name(self) -> str:
@@ -50,6 +52,16 @@ class OpenApplicationTool(BaseTool):
         if not app_name.isalnum():
             duration = time.time() - start_time
             return ToolResult(tool_name=self.name, success=False, message=f"Invalid application name format: '{app_name}'", duration=duration)
+
+        if DRY_RUN:
+            logger.info(f"[DRY RUN] Would open application: {app_name}")
+            return ToolResult(
+                tool_name=self.name,
+                success=True,
+                message=f"Would open {app_name}.",
+                duration=time.time() - start_time,
+                data={"application": app_name, "dry_run": True}
+            )
 
         try:
             # We use subprocess.Popen with shell=True under Windows to support detaching launched GUI apps

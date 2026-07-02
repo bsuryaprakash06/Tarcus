@@ -106,7 +106,7 @@ class TestLLMService(unittest.TestCase):
         mock_post.return_value = mock_response
 
         with patch("src.providers.openai_provider.MODEL_NAME", "gpt-4o"), \
-             patch("src.providers.openai_provider.API_KEY", "sk-test-key"), \
+             patch("src.providers.openai_provider.OPENAI_API_KEY", "sk-test-key"), \
              patch("src.providers.openai_provider.BASE_URL", "https://api.openai.com/v1/chat/completions"):
             provider = OpenAIProvider()
             self.assertEqual(provider.provider_name, "openai")
@@ -137,7 +137,7 @@ class TestLLMService(unittest.TestCase):
         mock_post.return_value = mock_response
 
         with patch("src.providers.groq_provider.MODEL_NAME", "llama-3.3-70b-versatile"), \
-             patch("src.providers.groq_provider.API_KEY", "gsk-test-key"), \
+             patch("src.providers.groq_provider.GROQ_API_KEY", "gsk-test-key"), \
              patch("src.providers.groq_provider.BASE_URL", "https://api.groq.com/openai/v1/chat/completions"):
             provider = GroqProvider()
             self.assertEqual(provider.provider_name, "groq")

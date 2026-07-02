@@ -7,6 +7,8 @@ from src.utils.logger import get_logger
 
 logger = get_logger("tool.create_folder")
 
+from src.utils.settings import DRY_RUN
+
 class CreateFolderTool(BaseTool):
     @property
     def name(self) -> str:
@@ -14,19 +16,19 @@ class CreateFolderTool(BaseTool):
 
     @property
     def description(self) -> str:
-        return "Creates a new folder at an abstract location (such as 'documents' or 'root')."
+        return "Creates a new directory/folder at the specified logical location."
 
     @property
     def arguments_schema(self) -> dict:
         return {
             "name": {
                 "type": "string",
-                "description": "Name of the folder to create."
+                "description": "The name of the folder to create."
             },
             "location": {
                 "type": "string",
                 "enum": ["documents", "root"],
-                "description": "Abstract target folder location. Supported values: 'documents' (maps to the workspace documents directory), 'root' (maps to project root)."
+                "description": "The logical location where the folder should be created."
             }
         }
 
@@ -34,8 +36,8 @@ class CreateFolderTool(BaseTool):
     def examples(self) -> list[str]:
         return [
             "Create a folder named physics",
-            "Make a new directory called coding",
-            "Create folder music in root"
+            "Make a new directory for my project",
+            "Create folder called test"
         ]
 
     @property
@@ -45,7 +47,7 @@ class CreateFolderTool(BaseTool):
     def execute(self, arguments: dict, context: ExecutionContext = None) -> ToolResult:
         start_time = time.time()
         folder_name = arguments.get("name", "").strip()
-        location_key = arguments.get("location", "documents").strip().lower()
+        location_key = arguments.get("location", "root").lower()
         
         if not folder_name:
             duration = time.time() - start_time
@@ -69,6 +71,16 @@ class CreateFolderTool(BaseTool):
                 duration = time.time() - start_time
                 return ToolResult(tool_name=self.name, success=False, message="Security Error: Directory traversal attempt detected.", duration=duration)
                 
+            if DRY_RUN:
+                logger.info(f"[DRY RUN] Would create folder: {target_path}")
+                return ToolResult(
+                    tool_name=self.name,
+                    success=True,
+                    message=f"Would create the folder {folder_name}.",
+                    duration=time.time() - start_time,
+                    data={"path": str(target_path), "dry_run": True}
+                )
+
             target_path.mkdir(parents=True, exist_ok=True)
             duration = time.time() - start_time
             return ToolResult(
