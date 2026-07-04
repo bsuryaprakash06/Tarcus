@@ -1,16 +1,10 @@
-from enum import Enum
 from src.models.plan import ToolResult
-
-class ResponseMode(Enum):
-    SUCCESS = "SUCCESS"
-    ERROR = "ERROR"
-    WARNING = "WARNING"
-    INFO = "INFO"
+from src.models.response import ResponseMode
 
 class ResponseService:
     """Service layer class to formulate conversational agent responses."""
     
-    def formulate_response(self, text: str, mode: ResponseMode = ResponseMode.SUCCESS) -> str:
+    def formulate_response(self, text: str, mode: ResponseMode = ResponseMode.CONFIRMATION) -> str:
         """
         Formulates a voice response based on the text and conversation mode.
         """
@@ -20,10 +14,10 @@ class ResponseService:
             return f"An error occurred: {clean_text}" if clean_text else "Something went wrong. Please try again."
         elif mode == ResponseMode.WARNING:
             return f"Warning: {clean_text}"
-        elif mode == ResponseMode.INFO:
+        elif mode == ResponseMode.CONVERSATION:
             return clean_text
             
-        # Default: SUCCESS / conversational response
+        # Default: CONFIRMATION / conversational response
         if not clean_text:
             return "I didn't catch that. Could you please repeat it?"
             

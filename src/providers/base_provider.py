@@ -43,7 +43,7 @@ class BaseProvider(ABC):
         pass
 
     @abstractmethod
-    def generate(self, system_prompt: str, user_prompt: str) -> ProviderResponse:
+    def generate(self, system_prompt: str, user_prompt: str, require_json: bool = False) -> ProviderResponse:
         """
         Communicates with the LLM backend to generate a response.
 

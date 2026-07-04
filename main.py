@@ -6,14 +6,21 @@ from src.utils.exceptions import VoiceAssistantError
 from src.utils.startup import run_startup_checks
 from src.services.voice_service import VoiceService
 from src.services.tts_service import TTSService
-from src.services.response_service import ResponseService, ResponseMode
+from src.services.response_service import ResponseService
+from src.models.response import ResponseMode, ResponseProfile
+from src.services.response_formatter_service import ResponseFormatterService
 from src.services.llm_service import LLMService
 from src.services.executor_service import ExecutorService
 from src.services.normalization_service import NormalizationService
+from src.services.intent_router_service import IntentRouterService
+from src.services.llm_chat_service import LLMChatService
+from src.services.conversation_service import ConversationService
+from src.services.fallback_service import FallbackService
 from src.safety.validator import SafetyValidator, SafetyError
 from src.models.transcription import TranscriptionResult
 from src.models.plan import ExecutionPlan, ToolResult
 from src.models.request_context import RequestContext
+from src.utils.settings import DEFAULT_RESPONSE_STYLE
 
 # Configure UTF-8 encoding on standard output/error to prevent UnicodeEncodeErrors with emojis on Windows.
 if hasattr(sys.stdout, "reconfigure"):
@@ -33,6 +40,11 @@ response_service = ResponseService()
 llm_service = LLMService()
 executor_service = ExecutorService()
 normalization_service = NormalizationService()
+intent_router_service = IntentRouterService()
+llm_chat_service = LLMChatService()
+conversation_service = ConversationService()
+fallback_service = FallbackService()
+response_formatter_service = ResponseFormatterService()
 safety_validator = SafetyValidator()
 
 def print_banner():
@@ -76,14 +88,24 @@ def execute(plan: ExecutionPlan, context: RequestContext) -> list[ToolResult]:
     context.diagnostics.stop_timer("Execution")
     return results
 
-def respond(response_text: str, context: RequestContext) -> None:
+def respond(response_text: str, context: RequestContext, profile: ResponseProfile = None) -> None:
     """
-    Step 4: respond() - outputs response to console and speaks it using the text-to-speech engine.
+    Step 4: respond() - passes text through formatter, outputs to console, and speaks it.
     """
+    if profile is None:
+        profile = ResponseProfile(mode=ResponseMode.CONVERSATION, max_sentences=2)
+        
+    formatted_response = response_formatter_service.format_response(response_text, profile)
+    
+    # Log duration/formatting for debug
+    logger.debug(f"Response formatted to {formatted_response.estimated_duration:.1f}s")
+    
     console.print()
     console.print("[bold magenta]Tarcus:[/bold magenta]")
-    console.print(f"[bold white]{response_text}[/bold white]")
-    tts_service.say(response_text, context=context)
+    console.print(f"[bold white]{formatted_response.formatted_text}[/bold white]")
+    
+    # In the future, TTS will accept formatted_response.ssml directly!
+    tts_service.say(formatted_response.formatted_text, context=context)
 
 def main():
     console.print("[yellow]Initializing components, please wait...[/yellow]")
@@ -110,8 +132,9 @@ def main():
             
             if not result.text.strip():
                 # Handle empty input
-                response_text = response_service.formulate_response("", ResponseMode.SUCCESS)
-                respond(response_text, context)
+                response_text = response_service.formulate_response("", ResponseMode.ERROR)
+                profile = ResponseProfile(mode=ResponseMode.ERROR, max_sentences=1)
+                respond(response_text, context, profile)
                 status = AssistantStatus.IDLE
                 console.print()
                 context.diagnostics.print_summary()
@@ -129,45 +152,90 @@ def main():
                     for change in norm_result.changes:
                         logger.debug(f"Rule: {change.original} -> {change.normalized} ({change.category.value})")
                 
-                # 2. Understand (using normalized text)
+                # 1.6. Route Intent
+                router_result = intent_router_service.route_request(norm_result.normalized_text)
+                
+                logger.debug("Intent Routing")
+                logger.debug(f"Intent: {router_result.intent.value} | Confidence: {router_result.confidence} | Destination: {router_result.destination}")
+                
+                # 2. Dispatch
                 status = AssistantStatus.PROCESSING
-                plan = understand(norm_result.normalized_text, context)
                 
-                # 2.5. Safety check
-                needs_confirm = validate_safety(plan)
-                
-                if needs_confirm:
-                    console.print("[bold yellow]⚠️ Safety Warning: This action requires user confirmation.[/bold yellow]")
-                    confirm = console.input("[bold yellow]Do you want to proceed? (y/n): [/bold yellow]").strip().lower()
-                    if confirm not in ("y", "yes"):
-                        console.print("[bold yellow]Execution cancelled for safety.[/bold yellow]")
-                        response_text = response_service.formulate_response("I cancelled the action for safety.", ResponseMode.WARNING)
-                        respond(response_text, context)
-                        status = AssistantStatus.IDLE
-                        console.print()
-                        context.diagnostics.print_summary()
-                        continue
-                
-                # 3. Execute
-                status = AssistantStatus.PROCESSING
-                results = execute(plan, context)
-                
-                # 4. Respond
-                status = AssistantStatus.COMPLETED
-                response_text = response_service.formulate_execution_response(results)
-                respond(response_text, context)
+                if router_result.destination == "Planner":
+                    # --- AUTOMATION PATH ---
+                    plan = understand(router_result.normalized_text, context)
+                    
+                    # 2.5. Safety check
+                    needs_confirm = validate_safety(plan)
+                    
+                    if needs_confirm:
+                        console.print("[bold yellow]⚠️ Safety Warning: This action requires user confirmation.[/bold yellow]")
+                        confirm = console.input("[bold yellow]Do you want to proceed? (y/n): [/bold yellow]").strip().lower()
+                        if confirm not in ("y", "yes"):
+                            console.print("[bold yellow]Execution cancelled for safety.[/bold yellow]")
+                            response_text = response_service.formulate_response("I cancelled the action for safety.", ResponseMode.WARNING)
+                            profile = ResponseProfile(mode=ResponseMode.WARNING, max_sentences=1)
+                            respond(response_text, context, profile)
+                            status = AssistantStatus.IDLE
+                            console.print()
+                            context.diagnostics.print_summary()
+                            continue
+                    
+                    # 3. Execute
+                    results = execute(plan, context)
+                    
+                    # 4. Respond
+                    status = AssistantStatus.COMPLETED
+                    response_text = response_service.formulate_execution_response(results)
+                    profile = ResponseProfile(mode=ResponseMode.AUTOMATION, max_sentences=1, verbosity="short")
+                    respond(response_text, context, profile)
+                    
+                elif router_result.destination == "LLMChatService":
+                    # --- KNOWLEDGE PATH ---
+                    profile = ResponseProfile(
+                        mode=ResponseMode.KNOWLEDGE, 
+                        max_sentences=3, 
+                        ask_followup=True, 
+                        style=DEFAULT_RESPONSE_STYLE, 
+                        verbosity="short"
+                    )
+                    response_text = llm_chat_service.respond(router_result.normalized_text, profile)
+                    status = AssistantStatus.COMPLETED
+                    respond(response_text, context, profile)
+                    
+                elif router_result.destination == "ConversationService":
+                    # --- CONVERSATION PATH ---
+                    response_text = conversation_service.respond(router_result.normalized_text)
+                    status = AssistantStatus.COMPLETED
+                    profile = ResponseProfile(mode=ResponseMode.CONVERSATION, max_sentences=1, style=DEFAULT_RESPONSE_STYLE)
+                    respond(response_text, context, profile)
+                    
+                else:
+                    # --- FALLBACK PATH ---
+                    if router_result.intent.value == "MIXED":
+                        response_text = fallback_service.handle_mixed_intent()
+                    elif router_result.confidence < 0.60:
+                        response_text = fallback_service.handle_low_confidence()
+                    else:
+                        response_text = fallback_service.handle_unknown()
+                        
+                    status = AssistantStatus.COMPLETED
+                    profile = ResponseProfile(mode=ResponseMode.CONVERSATION, max_sentences=1)
+                    respond(response_text, context, profile)
                 
             except SafetyError as se:
                 status = AssistantStatus.ERROR
                 console.print(f"\n[bold red]Safety Error: {se}[/bold red]")
                 response_text = response_service.formulate_response(str(se), ResponseMode.ERROR)
-                respond(response_text, context)
+                profile = ResponseProfile(mode=ResponseMode.ERROR, max_sentences=1)
+                respond(response_text, context, profile)
             except Exception as e:
                 status = AssistantStatus.ERROR
                 logger.error(f"Error during planning or execution: {e}")
                 console.print(f"\n[bold red]Error: {e}[/bold red]")
                 response_text = response_service.formulate_response("I encountered an issue while processing your command.", ResponseMode.ERROR)
-                respond(response_text, context)
+                profile = ResponseProfile(mode=ResponseMode.ERROR, max_sentences=1)
+                respond(response_text, context, profile)
             
             # Ready again
             status = AssistantStatus.IDLE

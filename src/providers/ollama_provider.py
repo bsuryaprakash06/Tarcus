@@ -37,7 +37,7 @@ class OllamaProvider(BaseProvider):
     def supports_tool_calling(self) -> bool:
         return False
 
-    def generate(self, system_prompt: str, user_prompt: str) -> ProviderResponse:
+    def generate(self, system_prompt: str, user_prompt: str, require_json: bool = False) -> ProviderResponse:
         payload = {
             "model": self.model_name,
             "messages": [
@@ -51,6 +51,9 @@ class OllamaProvider(BaseProvider):
             },
             "think": False
         }
+        
+        if require_json:
+            payload["format"] = "json"
 
         logger.info(f"Sending request to Ollama ({self.model_name}) at {self.base_url}...")
         start_time = time.time()

@@ -23,8 +23,14 @@ class MetricsService:
         self.successful_executions = 0
         self.failed_executions = 0
         self.total_transcriptions = 0
-        self.normalized_transcriptions = 0
         self.corrected_terms = {}
+        self.intent_counts = {}
+        self.classifier_latencies = []
+        self.response_lengths = []
+        self.speech_durations = []
+        self.formatter_latencies = []
+        self.shortened_responses = 0
+        self.total_responses = 0
         
     def record_planner_latency(self, latency: float) -> None:
         if ENABLE_METRICS:
@@ -54,6 +60,25 @@ class MetricsService:
             for term in terms:
                 self.corrected_terms[term] = self.corrected_terms.get(term, 0) + 1
 
+    def record_intent(self, intent_name: str, latency: float) -> None:
+        if not ENABLE_METRICS:
+            return
+            
+        self.intent_counts[intent_name] = self.intent_counts.get(intent_name, 0) + 1
+        self.classifier_latencies.append(latency)
+
+    def record_formatting(self, original_length: int, final_length: int, duration: float, latency: float) -> None:
+        if not ENABLE_METRICS:
+            return
+            
+        self.total_responses += 1
+        self.response_lengths.append(final_length)
+        self.speech_durations.append(duration)
+        self.formatter_latencies.append(latency)
+        
+        if final_length < original_length:
+            self.shortened_responses += 1
+
     def _compute_stats(self, data: list) -> dict:
         """Helper to compute statistics for a given raw array."""
         if not data:
@@ -75,17 +100,26 @@ class MetricsService:
             
         planner_stats = self._compute_stats(self.planner_latencies)
         exec_stats = self._compute_stats(self.execution_latencies)
+        classifier_stats = self._compute_stats(self.classifier_latencies)
         
         total_exec = self.successful_executions + self.failed_executions
         success_rate = (self.successful_executions / total_exec * 100) if total_exec > 0 else 0.0
         failure_rate = (self.failed_executions / total_exec * 100) if total_exec > 0 else 0.0
         
         normalization_rate = (self.normalized_transcriptions / self.total_transcriptions * 100) if self.total_transcriptions > 0 else 0.0
-        
         summary = [
             "",
             "Metrics Summary",
             "-" * 20,
+            "Response Formatter:",
+            f"  Avg Latency: {self._compute_stats(self.formatter_latencies)['average']:.2f} s",
+            f"  Avg Duration:{self._compute_stats(self.speech_durations)['average']:.2f} s",
+            f"  Shortened:   {(self.shortened_responses / self.total_responses * 100) if self.total_responses > 0 else 0:.1f}%",
+            "",
+            "Intent Classifier:",
+            f"  Average: {classifier_stats['average']:.2f} s",
+            f"  Median:  {classifier_stats['median']:.2f} s",
+            "",
             "Planner:",
             f"  Average: {planner_stats['average']:.2f} s",
             f"  Median:  {planner_stats['median']:.2f} s",
@@ -99,10 +133,23 @@ class MetricsService:
             f"  Success Rate: {success_rate:.1f}%",
             f"  Failure Rate: {failure_rate:.1f}%",
             f"  Normalization Rate: {normalization_rate:.1f}%",
-            "-" * 20,
-            "Tool Usage:"
+            "-" * 20
         ]
         
+        if self.intent_counts:
+            summary.append("Intent Distribution:")
+            total_intents = sum(self.intent_counts.values())
+            for intent, count in sorted(self.intent_counts.items(), key=lambda x: x[1], reverse=True):
+                pct = (count / total_intents * 100) if total_intents > 0 else 0
+                summary.append(f"  {intent}: {count} ({pct:.1f}%)")
+                
+            fallback_freq = (self.intent_counts.get("UNKNOWN", 0) / total_intents * 100) if total_intents > 0 else 0
+            mixed_freq = (self.intent_counts.get("MIXED", 0) / total_intents * 100) if total_intents > 0 else 0
+            summary.append(f"  Fallback Frequency: {fallback_freq:.1f}%")
+            summary.append(f"  Mixed Intent Frequency: {mixed_freq:.1f}%")
+            summary.append("-" * 20)
+            
+        summary.append("Tool Usage:")
         for tool, count in sorted(self.tool_usage.items(), key=lambda x: x[1], reverse=True):
             summary.append(f"  {tool}: {count}")
             

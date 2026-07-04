@@ -40,7 +40,7 @@ class Planner:
 
             try:
                 # Call provider (decoupled from prompting / network details)
-                response = self.provider.generate(system_prompt, current_user_prompt)
+                response = self.provider.generate(system_prompt, current_user_prompt, require_json=True)
                 
                 # Perform 3-stage validation (syntax, schema, semantics)
                 execution_plan = parse_execution_plan(response.text, self.registry)

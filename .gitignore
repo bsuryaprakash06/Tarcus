@@ -19,7 +19,7 @@ __pycache__/
 *.private
 
 # Local model cache
-models/
+/models/
 
 # Application logs
 logs/*.log

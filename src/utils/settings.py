@@ -67,6 +67,15 @@ ENABLE_BRAND_NORMALIZATION = os.environ.get("ENABLE_BRAND_NORMALIZATION", "True"
 ENABLE_TECHNICAL_NORMALIZATION = os.environ.get("ENABLE_TECHNICAL_NORMALIZATION", "True").lower() == "true"
 ENABLE_OS_NORMALIZATION = os.environ.get("ENABLE_OS_NORMALIZATION", "True").lower() == "true"
 
+# Intent Router Settings
+ENABLE_INTENT_ROUTER = os.environ.get("ENABLE_INTENT_ROUTER", "True").lower() == "true"
+INTENT_HIGH_CONFIDENCE = float(os.environ.get("INTENT_HIGH_CONFIDENCE", "0.90"))
+INTENT_LOW_CONFIDENCE = float(os.environ.get("INTENT_LOW_CONFIDENCE", "0.60"))
+
+# Formatter Settings
+ENABLE_SPEECH_OPTIMIZATION = os.environ.get("ENABLE_SPEECH_OPTIMIZATION", "True").lower() == "true"
+DEFAULT_RESPONSE_STYLE = os.environ.get("DEFAULT_RESPONSE_STYLE", "friendly")
+
 # Automatic Fallback: If Groq is primary but no valid API key is present, fallback to local Ollama (Llama)
 if LLM_PROVIDER == "groq":
     _active_key = GROQ_API_KEY or API_KEY

@@ -36,7 +36,7 @@ class GroqProvider(BaseProvider):
     def supports_tool_calling(self) -> bool:
         return True
 
-    def generate(self, system_prompt: str, user_prompt: str) -> ProviderResponse:
+    def generate(self, system_prompt: str, user_prompt: str, require_json: bool = False) -> ProviderResponse:
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}"
@@ -48,9 +48,11 @@ class GroqProvider(BaseProvider):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            "temperature": 0.0,
-            "response_format": {"type": "json_object"}
+            "temperature": 0.0
         }
+        
+        if require_json:
+            payload["response_format"] = {"type": "json_object"}
 
         logger.info(f"Sending request to Groq ({self.model_name}) at {self.base_url}...")
         start_time = time.time()

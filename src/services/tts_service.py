@@ -1,4 +1,7 @@
 from pathlib import Path
+import queue
+import threading
+import re
 from src.utils.logger import get_logger
 from src.voice.text_to_speech import speak
 from src.services.audio_service import AudioService
@@ -14,21 +17,61 @@ class TTSService:
         
     def say(self, text: str, context: RequestContext = None) -> None:
         """
-        Generates speech for the given text and plays it synchronously using the AudioService.
-        
-        Args:
-            text: The text to speak.
-            context: The request context for recording timings.
+        Generates speech for the given text. Splits multi-sentence text to pipeline 
+        generation and playback for ultra-low latency.
         """
-        try:
-            # Generate the cached or new MP3 file path
-            if context: context.diagnostics.start_timer("TTS")
-            mp3_path = speak(text)
-            if context: context.diagnostics.stop_timer("TTS")
+        # Split text into sentences, preserving the punctuation
+        sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', text) if s.strip()]
+        
+        # If it's a very short response, execute synchronously
+        if len(sentences) <= 1:
+            try:
+                if context: context.diagnostics.start_timer("TTS")
+                mp3_path = speak(text)
+                if context: context.diagnostics.stop_timer("TTS")
+                
+                if context: context.diagnostics.start_timer("Playback")
+                self.audio_service.play_file(mp3_path)
+                if context: context.diagnostics.stop_timer("Playback")
+            except Exception as e:
+                logger.error(f"Error in TTSService.say(): {e}")
+            return
             
-            # Delegate to AudioService for playback
-            if context: context.diagnostics.start_timer("Playback")
-            self.audio_service.play_file(mp3_path)
-            if context: context.diagnostics.stop_timer("Playback")
-        except Exception as e:
-            logger.error(f"Error in TTSService.say(): {e}")
+        # For multi-sentence responses, pipeline the generation!
+        audio_queue = queue.Queue()
+        
+        def _generator_worker():
+            for sentence in sentences:
+                try:
+                    mp3_path = speak(sentence)
+                    audio_queue.put(mp3_path)
+                except Exception as e:
+                    logger.error(f"Failed to generate speech for sentence: {e}")
+                    audio_queue.put(e)
+            audio_queue.put(None) # Sentinel to close the queue
+            
+        # Start generator in the background
+        if context: context.diagnostics.start_timer("TTS")
+        threading.Thread(target=_generator_worker, daemon=True).start()
+        
+        first = True
+        while True:
+            item = audio_queue.get()
+            if item is None:
+                break
+                
+            if isinstance(item, Exception):
+                continue
+                
+            if first and context:
+                context.diagnostics.stop_timer("TTS")
+                context.diagnostics.start_timer("Playback")
+                first = False
+                
+            try:
+                self.audio_service.play_file(item)
+            except Exception as e:
+                logger.error(f"Error playing chunk: {e}")
+                
+        if not first and context:
+            context.diagnostics.stop_timer("Playback")
