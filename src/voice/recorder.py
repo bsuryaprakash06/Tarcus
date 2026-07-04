@@ -11,7 +11,7 @@ from src.voice.voice_activity_detector import VoiceActivityDetector
 
 logger = get_logger("recorder")
 
-def record_audio(duration: int = 5) -> Path:
+def record_audio(context = None, duration: int = 5) -> Path:
     """
     Records audio from the microphone dynamically using VAD, falling back to 
     a maximum duration if VAD is disabled.
@@ -52,6 +52,17 @@ def record_audio(duration: int = 5) -> Path:
                 time.sleep(0.1)
 
         logger.info("Recording finished.")
+        
+        if context:
+            if vad.speech_detected and vad.first_speech_time and vad.last_speech_time:
+                speech_duration = vad.last_speech_time - vad.first_speech_time
+                silence_duration = time.time() - vad.last_speech_time
+            else:
+                speech_duration = 0.0
+                silence_duration = 0.0
+                
+            context.diagnostics.set_duration("Speech Duration", speech_duration)
+            context.diagnostics.set_duration("Silence Detection", silence_duration)
         
         if not audio_frames:
             raise RecordingError("No audio frames were captured.")

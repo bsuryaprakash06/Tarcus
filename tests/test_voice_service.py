@@ -19,6 +19,6 @@ class TestVoiceService(unittest.TestCase):
         service = VoiceService()
         result = service.listen(duration=2)
         
-        mock_record.assert_called_once_with(2)
+        mock_record.assert_called_once_with(None, 2)
         mock_transcribe.assert_called_once_with(Path("dummy.wav"))
         self.assertEqual(result, mock_result)

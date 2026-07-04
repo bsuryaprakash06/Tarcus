@@ -54,10 +54,18 @@ ENABLE_METRICS = os.environ.get("ENABLE_METRICS", "True").lower() == "true"
 VOICE_ACTIVITY_ENABLED = os.environ.get("VOICE_ACTIVITY_ENABLED", "True").lower() == "true"
 
 # Audio Recording & VAD Constants
-MAX_RECORDING_SECONDS = float(os.environ.get("MAX_RECORDING_SECONDS", "15.0"))
-SILENCE_TIMEOUT_SECONDS = float(os.environ.get("SILENCE_TIMEOUT_SECONDS", "1.5"))
+MAX_RECORDING_SECONDS = float(os.environ.get("MAX_RECORDING_SECONDS", "10.0"))
+SILENCE_TIMEOUT_SECONDS = float(os.environ.get("SILENCE_TIMEOUT_SECONDS", "1.25"))
+INITIAL_SILENCE_TIMEOUT = float(os.environ.get("INITIAL_SILENCE_TIMEOUT", "3.0"))
 MIN_SPEECH_SECONDS = float(os.environ.get("MIN_SPEECH_SECONDS", "0.5"))
-MIC_ENERGY_THRESHOLD = float(os.environ.get("MIC_ENERGY_THRESHOLD", "0.01"))
+MIC_ENERGY_THRESHOLD = float(os.environ.get("MIC_ENERGY_THRESHOLD", "0.05"))
+
+# Speech Normalization Settings
+ENABLE_SPEECH_NORMALIZATION = os.environ.get("ENABLE_SPEECH_NORMALIZATION", "True").lower() == "true"
+ENABLE_ALIAS_EXPANSION = os.environ.get("ENABLE_ALIAS_EXPANSION", "True").lower() == "true"
+ENABLE_BRAND_NORMALIZATION = os.environ.get("ENABLE_BRAND_NORMALIZATION", "True").lower() == "true"
+ENABLE_TECHNICAL_NORMALIZATION = os.environ.get("ENABLE_TECHNICAL_NORMALIZATION", "True").lower() == "true"
+ENABLE_OS_NORMALIZATION = os.environ.get("ENABLE_OS_NORMALIZATION", "True").lower() == "true"
 
 # Automatic Fallback: If Groq is primary but no valid API key is present, fallback to local Ollama (Llama)
 if LLM_PROVIDER == "groq":

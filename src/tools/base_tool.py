@@ -55,3 +55,17 @@ class BaseTool(ABC):
     def execute(self, arguments: dict, context: ExecutionContext = None) -> ToolResult:
         """Executes the tool with the given arguments and optional context."""
         pass
+        
+    def error_result(self, exception: Exception) -> ToolResult:
+        """Helper to safely map internal exceptions to a standard ToolResult."""
+        # Import inside the method or at the top
+        from src.services.error_mapper import ErrorMapper
+        mapped = ErrorMapper.to_user_message(exception)
+        return ToolResult(
+            tool_name=self.name,
+            success=False,
+            user_message=mapped.user_message,
+            developer_message=str(exception),
+            error_code=mapped.error_code,
+            duration=0.0
+        )

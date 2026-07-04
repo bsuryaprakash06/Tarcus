@@ -2,6 +2,7 @@ import subprocess
 import time
 from src.tools.base_tool import BaseTool, SafetyLevel
 from src.models.plan import ToolResult, ExecutionContext
+from src.models.error_codes import ErrorCode
 from src.utils.logger import get_logger
 
 logger = get_logger("tool.open_application")
@@ -44,21 +45,22 @@ class OpenApplicationTool(BaseTool):
         app_name = arguments.get("application", "").strip()
         if not app_name:
             duration = time.time() - start_time
-            return ToolResult(tool_name=self.name, success=False, message="Application name argument is missing or empty.", duration=duration)
+            return ToolResult(tool_name=self.name, success=False, user_message="I need to know which application to open.", developer_message="Application name argument is missing or empty.", error_code=ErrorCode.VALIDATION_ERROR, duration=duration)
             
         logger.info(f"Executing open_application for: '{app_name}'")
         
         # Security sanitization check: app_name should be only alphanumeric
         if not app_name.isalnum():
             duration = time.time() - start_time
-            return ToolResult(tool_name=self.name, success=False, message=f"Invalid application name format: '{app_name}'", duration=duration)
+            return ToolResult(tool_name=self.name, success=False, user_message="That doesn't look like a valid application name.", developer_message=f"Invalid application name format: '{app_name}'", error_code=ErrorCode.VALIDATION_ERROR, duration=duration)
 
         if DRY_RUN:
             logger.info(f"[DRY RUN] Would open application: {app_name}")
             return ToolResult(
                 tool_name=self.name,
                 success=True,
-                message=f"Would open {app_name}.",
+                user_message=f"Simulating opening {app_name}.",
+                developer_message=f"Would open {app_name}.",
                 duration=time.time() - start_time,
                 data={"application": app_name, "dry_run": True}
             )
@@ -70,16 +72,13 @@ class OpenApplicationTool(BaseTool):
             return ToolResult(
                 tool_name=self.name,
                 success=True,
-                message=f"I have opened {app_name}.",
+                user_message=f"Opening {app_name}.",
+                developer_message=f"I have opened {app_name}.",
                 duration=duration,
                 data={"application": app_name}
             )
         except Exception as e:
             logger.error(f"Failed to launch application {app_name}: {e}")
-            duration = time.time() - start_time
-            return ToolResult(
-                tool_name=self.name,
-                success=False,
-                message=f"Failed to open {app_name}: {e}",
-                duration=duration
-            )
+            res = self.error_result(e)
+            res.duration = time.time() - start_time
+            return res

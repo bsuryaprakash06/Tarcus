@@ -5,6 +5,8 @@ from src.models.plan import ExecutionPlan, PlanItem, ExecutionContext, ToolResul
 from src.tools.registry import ToolRegistry
 from src.tools.base_tool import BaseTool, SafetyLevel
 
+from src.models.error_codes import ErrorCode
+
 class MockTool(BaseTool):
     @property
     def name(self) -> str:
@@ -29,10 +31,10 @@ class MockTool(BaseTool):
     def execute(self, arguments: dict, context: ExecutionContext) -> ToolResult:
         param = arguments.get("param", "")
         if param == "fail":
-            return ToolResult(tool_name=self.name, success=False, message="Simulated tool failure.", duration=0.05)
+            return ToolResult(tool_name=self.name, success=False, user_message="Failed", developer_message="Simulated tool failure.", error_code=ErrorCode.EXECUTION_ERROR, duration=0.05)
         elif param == "error":
             raise ValueError("Unexpected tool crash")
-        return ToolResult(tool_name=self.name, success=True, message=f"Executed with {param}", duration=0.1, data={"echo": param})
+        return ToolResult(tool_name=self.name, success=True, user_message=f"Success {param}", developer_message=f"Executed with {param}", duration=0.1, data={"echo": param})
 
 class TestExecutorService(unittest.TestCase):
     def setUp(self):
@@ -68,12 +70,12 @@ class TestExecutorService(unittest.TestCase):
         
         self.assertEqual(len(results), 2)
         self.assertTrue(results[0].success)
-        self.assertEqual(results[0].message, "Executed with hello")
+        self.assertEqual(results[0].developer_message, "Executed with hello")
         self.assertEqual(results[0].data, {"echo": "hello"})
         self.assertGreater(results[0].duration, 0)
         
         self.assertTrue(results[1].success)
-        self.assertEqual(results[1].message, "Executed with world")
+        self.assertEqual(results[1].developer_message, "Executed with world")
 
     @patch("os.getlogin")
     def test_execute_plan_tool_not_found(self, mock_login):
@@ -87,7 +89,7 @@ class TestExecutorService(unittest.TestCase):
         
         self.assertEqual(len(results), 1)
         self.assertFalse(results[0].success)
-        self.assertIn("is not supported", results[0].message)
+        self.assertIn("is not supported", results[0].developer_message)
 
     @patch("os.getlogin")
     def test_execute_plan_tool_failure(self, mock_login):
@@ -101,7 +103,7 @@ class TestExecutorService(unittest.TestCase):
         
         self.assertEqual(len(results), 1)
         self.assertFalse(results[0].success)
-        self.assertEqual(results[0].message, "Simulated tool failure.")
+        self.assertEqual(results[0].developer_message, "Simulated tool failure.")
 
     @patch("os.getlogin")
     def test_execute_plan_tool_exception(self, mock_login):
@@ -115,7 +117,7 @@ class TestExecutorService(unittest.TestCase):
         
         self.assertEqual(len(results), 1)
         self.assertFalse(results[0].success)
-        self.assertIn("Unexpected tool crash", results[0].message)
+        self.assertIn("Unexpected tool crash", results[0].developer_message)
 
 if __name__ == "__main__":
     unittest.main()

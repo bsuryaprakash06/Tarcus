@@ -1,6 +1,7 @@
 import pyperclip
 from src.tools.base_tool import BaseTool, SafetyLevel
 from src.models.plan import ToolResult, ExecutionContext
+from src.models.error_codes import ErrorCode
 from src.utils.settings import DRY_RUN
 
 class ReadClipboardTool(BaseTool):
@@ -38,8 +39,9 @@ class ReadClipboardTool(BaseTool):
             return ToolResult(
                 tool_name=self.name,
                 success=True,
-                message="[DRY RUN] Would read contents from clipboard.",
-                duration=0.0
+                user_message="Simulating read contents from clipboard.",
+                    developer_message="[DRY RUN] Would read contents from clipboard.",
+                    duration=0.0
             )
 
         try:
@@ -52,9 +54,4 @@ class ReadClipboardTool(BaseTool):
                 data={"clipboard_content": content}
             )
         except Exception as e:
-            return ToolResult(
-                tool_name=self.name,
-                success=False,
-                message=f"Failed to read clipboard: {str(e)}",
-                duration=0.0
-            )
+            return self.error_result(e)

@@ -1,6 +1,7 @@
 import os
 from src.tools.base_tool import BaseTool, SafetyLevel
 from src.models.plan import ToolResult, ExecutionContext
+from src.models.error_codes import ErrorCode
 from src.utils.settings import DRY_RUN
 
 class RenameFileTool(BaseTool):
@@ -49,8 +50,10 @@ class RenameFileTool(BaseTool):
             return ToolResult(
                 tool_name=self.name,
                 success=False,
-                message="Both source_path and new_name must be provided.",
-                duration=0.0
+                user_message="I'm missing some required information.",
+                    developer_message="Both source_path and new_name must be provided.",
+                    error_code=ErrorCode.VALIDATION_ERROR,
+                    duration=0.0
             )
             
         if not os.path.isabs(source_path) and context:
@@ -60,8 +63,10 @@ class RenameFileTool(BaseTool):
             return ToolResult(
                 tool_name=self.name,
                 success=False,
-                message=f"Source file not found: {source_path}",
-                duration=0.0
+                user_message="I couldn't complete that action.",
+                    developer_message=f"Source file not found: {source_path}",
+                    error_code=ErrorCode.VALIDATION_ERROR,
+                    duration=0.0
             )
             
         # Determine target path
@@ -72,8 +77,9 @@ class RenameFileTool(BaseTool):
             return ToolResult(
                 tool_name=self.name,
                 success=True,
-                message=f"[DRY RUN] Would rename '{source_path}' to '{target_path}'.",
-                duration=0.0
+                user_message=f"Simulating rename '{source_path}' to '{target_path}'.",
+                    developer_message=f"[DRY RUN] Would rename '{source_path}' to '{target_path}'.",
+                    duration=0.0
             )
 
         try:
@@ -81,13 +87,9 @@ class RenameFileTool(BaseTool):
             return ToolResult(
                 tool_name=self.name,
                 success=True,
-                message=f"Successfully renamed to {target_path}",
-                duration=0.0
+                user_message="Renamed successfully.",
+                    developer_message=f"Successfully renamed to {target_path}",
+                    duration=0.0
             )
         except Exception as e:
-            return ToolResult(
-                tool_name=self.name,
-                success=False,
-                message=f"Failed to rename file: {str(e)}",
-                duration=0.0
-            )
+            return self.error_result(e)

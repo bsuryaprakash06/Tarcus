@@ -39,20 +39,20 @@ class TestTools(unittest.TestCase):
         
         result = tool.execute({"application": "calc"}, self.context)
         self.assertTrue(result.success)
-        self.assertIn("calc", result.message)
+        self.assertIn("calc", result.developer_message)
         mock_popen.assert_called_once_with("start calc", shell=True)
 
     def test_open_application_invalid_name(self):
         tool = OpenApplicationTool()
         result = tool.execute({"application": "calc; ls"}, self.context)
         self.assertFalse(result.success)
-        self.assertIn("Invalid application name format", result.message)
+        self.assertIn("Invalid application name format", result.developer_message)
 
     def test_open_application_missing_name(self):
         tool = OpenApplicationTool()
         result = tool.execute({}, self.context)
         self.assertFalse(result.success)
-        self.assertIn("missing or empty", result.message)
+        self.assertIn("missing or empty", result.developer_message)
 
     def test_create_folder_root(self):
         tool = CreateFolderTool()
@@ -80,13 +80,13 @@ class TestTools(unittest.TestCase):
         # Try to traverse out of the base folder
         result = tool.execute({"name": "../traversal_dir", "location": "root"}, self.context)
         self.assertFalse(result.success)
-        self.assertIn("traversal attempt detected", result.message)
+        self.assertIn("traversal attempt detected", result.developer_message)
 
     def test_create_folder_missing_name(self):
         tool = CreateFolderTool()
         result = tool.execute({}, self.context)
         self.assertFalse(result.success)
-        self.assertIn("missing or empty", result.message)
+        self.assertIn("missing or empty", result.developer_message)
 
     @patch("webbrowser.open")
     def test_search_web_success(self, mock_web_open):
@@ -102,7 +102,7 @@ class TestTools(unittest.TestCase):
         tool = SearchWebTool()
         result = tool.execute({}, self.context)
         self.assertFalse(result.success)
-        self.assertIn("missing or empty", result.message)
+        self.assertIn("missing or empty", result.developer_message)
 
     @patch("subprocess.Popen")
     @patch("webbrowser.open")

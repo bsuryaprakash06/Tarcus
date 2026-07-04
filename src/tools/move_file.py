@@ -2,6 +2,7 @@ import os
 import shutil
 from src.tools.base_tool import BaseTool, SafetyLevel
 from src.models.plan import ToolResult, ExecutionContext
+from src.models.error_codes import ErrorCode
 from src.utils.settings import DRY_RUN
 
 class MoveFileTool(BaseTool):
@@ -50,8 +51,10 @@ class MoveFileTool(BaseTool):
             return ToolResult(
                 tool_name=self.name,
                 success=False,
-                message="Both source_path and destination_dir must be provided.",
-                duration=0.0
+                user_message="I'm missing some required information.",
+                    developer_message="Both source_path and destination_dir must be provided.",
+                    error_code=ErrorCode.VALIDATION_ERROR,
+                    duration=0.0
             )
             
         if not os.path.isabs(source_path) and context:
@@ -64,8 +67,10 @@ class MoveFileTool(BaseTool):
             return ToolResult(
                 tool_name=self.name,
                 success=False,
-                message=f"Source file not found: {source_path}",
-                duration=0.0
+                user_message="I couldn't complete that action.",
+                    developer_message=f"Source file not found: {source_path}",
+                    error_code=ErrorCode.VALIDATION_ERROR,
+                    duration=0.0
             )
             
         os.makedirs(destination_dir, exist_ok=True)
@@ -75,8 +80,9 @@ class MoveFileTool(BaseTool):
             return ToolResult(
                 tool_name=self.name,
                 success=True,
-                message=f"[DRY RUN] Would move '{source_path}' to '{target_path}'.",
-                duration=0.0
+                user_message=f"Simulating move '{source_path}' to '{target_path}'.",
+                    developer_message=f"[DRY RUN] Would move '{source_path}' to '{target_path}'.",
+                    duration=0.0
             )
 
         try:
@@ -84,13 +90,9 @@ class MoveFileTool(BaseTool):
             return ToolResult(
                 tool_name=self.name,
                 success=True,
-                message=f"Successfully moved to {target_path}",
-                duration=0.0
+                user_message="Moved successfully.",
+                    developer_message=f"Successfully moved to {target_path}",
+                    duration=0.0
             )
         except Exception as e:
-            return ToolResult(
-                tool_name=self.name,
-                success=False,
-                message=f"Failed to move file: {str(e)}",
-                duration=0.0
-            )
+            return self.error_result(e)

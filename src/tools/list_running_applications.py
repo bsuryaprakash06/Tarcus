@@ -1,6 +1,7 @@
 import psutil
 from src.tools.base_tool import BaseTool, SafetyLevel
 from src.models.plan import ToolResult, ExecutionContext
+from src.models.error_codes import ErrorCode
 from src.utils.settings import DRY_RUN
 
 class ListRunningApplicationsTool(BaseTool):
@@ -37,8 +38,9 @@ class ListRunningApplicationsTool(BaseTool):
             return ToolResult(
                 tool_name=self.name,
                 success=True,
-                message="[DRY RUN] Would list running applications.",
-                duration=0.0
+                user_message="Simulating list running applications.",
+                    developer_message="[DRY RUN] Would list running applications.",
+                    duration=0.0
             )
 
         try:
@@ -60,9 +62,4 @@ class ListRunningApplicationsTool(BaseTool):
                 data={"applications": list(apps)}
             )
         except Exception as e:
-            return ToolResult(
-                tool_name=self.name,
-                success=False,
-                message=f"Failed to list applications: {str(e)}",
-                duration=0.0
-            )
+            return self.error_result(e)

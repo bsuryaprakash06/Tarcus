@@ -1,6 +1,7 @@
 from datetime import datetime
 from src.tools.base_tool import BaseTool, SafetyLevel
 from src.models.plan import ToolResult, ExecutionContext
+from src.models.error_codes import ErrorCode
 
 class GetCurrentTimeTool(BaseTool):
     
@@ -37,6 +38,7 @@ class GetCurrentTimeTool(BaseTool):
         return ToolResult(
             tool_name=self.name,
             success=True,
-            message=f"The current local date and time is {current_time}",
-            duration=0.0
+            user_message="Action completed successfully.",
+                    developer_message=f"The current local date and time is {current_time}",
+                    duration=0.0
         )

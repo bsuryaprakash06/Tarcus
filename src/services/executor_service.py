@@ -7,6 +7,9 @@ from src.models.plan import ExecutionPlan, ExecutionContext, ToolResult
 from src.tools.registry import ToolRegistry
 from src.utils.logger import get_logger, log_structured_tool_result, dump_debug_json
 from src.services.metrics_service import MetricsService
+from src.services.error_mapper import ErrorMapper
+from src.models.error_codes import ErrorCode
+import traceback
 
 logger = get_logger("executor_service")
 
@@ -93,7 +96,9 @@ class ExecutorService:
                 error_result = ToolResult(
                     tool_name=tool_name,
                     success=False,
-                    message=msg,
+                    user_message="I don't know how to perform that action.",
+                    developer_message=msg,
+                    error_code=ErrorCode.UNKNOWN,
                     duration=0.0
                 )
                 self.metrics.record_tool_usage(tool_name, False)
@@ -119,19 +124,25 @@ class ExecutorService:
                     arguments=arguments,
                     status="SUCCESS" if result.success else "FAILED",
                     duration=result.duration,
-                    message=result.message
+                    developer_message=result.developer_message,
+                    error_code=result.error_code.value if result.error_code != ErrorCode.NONE else ""
                 )
                 
                 results.append(result)
             except Exception as e:
                 msg = f"Error during execution: {e}"
+                stack = traceback.format_exc()
                 logger.error(f"Error executing step {index} ({tool_name}): {e}")
                 self.metrics.record_tool_usage(tool_name, False)
+                
+                mapped_error = ErrorMapper.to_user_message(e)
                 
                 err_result = ToolResult(
                     tool_name=tool_name,
                     success=False,
-                    message=msg,
+                    user_message=mapped_error.user_message,
+                    developer_message=msg,
+                    error_code=mapped_error.error_code,
                     duration=0.0
                 )
                 log_structured_tool_result(
@@ -141,7 +152,9 @@ class ExecutorService:
                     arguments=arguments,
                     status="FAILED (EXCEPTION)",
                     duration=0.0,
-                    message=msg
+                    developer_message=msg,
+                    error_code=mapped_error.error_code.value,
+                    stack_trace=stack
                 )
                 results.append(err_result)
                 

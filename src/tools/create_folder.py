@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 from src.tools.base_tool import BaseTool, SafetyLevel
 from src.models.plan import ToolResult, ExecutionContext
+from src.models.error_codes import ErrorCode
 from src.utils.logger import get_logger
 
 logger = get_logger("tool.create_folder")
@@ -51,7 +52,7 @@ class CreateFolderTool(BaseTool):
         
         if not folder_name:
             duration = time.time() - start_time
-            return ToolResult(tool_name=self.name, success=False, message="Folder name argument is missing or empty.", duration=duration)
+            return ToolResult(tool_name=self.name, success=False, user_message="I need to know the name of the folder.", developer_message="Folder name argument is missing or empty.", error_code=ErrorCode.VALIDATION_ERROR, duration=duration)
 
         # Resolve abstract location using the current execution context path (or fallback to context.cwd or os.getcwd())
         cwd = context.cwd if context else os.getcwd()
@@ -69,14 +70,15 @@ class CreateFolderTool(BaseTool):
             real_target = os.path.abspath(target_path)
             if not real_target.startswith(real_base):
                 duration = time.time() - start_time
-                return ToolResult(tool_name=self.name, success=False, message="Security Error: Directory traversal attempt detected.", duration=duration)
+                return ToolResult(tool_name=self.name, success=False, user_message="I cannot create a folder outside the allowed directory.", developer_message="Security Error: Directory traversal attempt detected.", error_code=ErrorCode.PERMISSION_DENIED, duration=duration)
                 
             if DRY_RUN:
                 logger.info(f"[DRY RUN] Would create folder: {target_path}")
                 return ToolResult(
                     tool_name=self.name,
                     success=True,
-                    message=f"Would create the folder {folder_name}.",
+                    user_message=f"Simulating creating the folder {folder_name}.",
+                    developer_message=f"Would create the folder {folder_name}.",
                     duration=time.time() - start_time,
                     data={"path": str(target_path), "dry_run": True}
                 )
@@ -86,16 +88,13 @@ class CreateFolderTool(BaseTool):
             return ToolResult(
                 tool_name=self.name,
                 success=True,
-                message=f"I have created the folder {folder_name}.",
+                user_message=f"Created the folder {folder_name}.",
+                developer_message=f"I have created the folder {folder_name}.",
                 duration=duration,
                 data={"path": str(target_path)}
             )
         except Exception as e:
             logger.error(f"Failed to create folder: {e}")
-            duration = time.time() - start_time
-            return ToolResult(
-                tool_name=self.name,
-                success=False,
-                message=f"Failed to create folder {folder_name}: {e}",
-                duration=duration
-            )
+            res = self.error_result(e)
+            res.duration = time.time() - start_time
+            return res

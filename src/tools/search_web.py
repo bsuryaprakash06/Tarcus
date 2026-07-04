@@ -2,6 +2,7 @@ import webbrowser
 import time
 from src.tools.base_tool import BaseTool, SafetyLevel
 from src.models.plan import ToolResult, ExecutionContext
+from src.models.error_codes import ErrorCode
 from src.utils.logger import get_logger
 
 logger = get_logger("tool.search_web")
@@ -43,7 +44,7 @@ class SearchWebTool(BaseTool):
         query = arguments.get("query", "").strip()
         if not query:
             duration = time.time() - start_time
-            return ToolResult(tool_name=self.name, success=False, message="Search query argument is missing or empty.", duration=duration)
+            return ToolResult(tool_name=self.name, success=False, user_message="I'm missing some required information.", developer_message="Search query argument is missing or empty.", error_code=ErrorCode.VALIDATION_ERROR, duration=duration)
             
         logger.info(f"Executing search_web for query: '{query}'")
         
@@ -56,7 +57,8 @@ class SearchWebTool(BaseTool):
                 return ToolResult(
                     tool_name=self.name,
                     success=True,
-                    message=f"Would search the web for {query}.",
+                    user_message=f"Simulating search for {query}.",
+                    developer_message=f"Would search the web for {query}.",
                     duration=time.time() - start_time,
                     data={"query": query, "url": url, "dry_run": True}
                 )
@@ -66,16 +68,13 @@ class SearchWebTool(BaseTool):
             return ToolResult(
                 tool_name=self.name,
                 success=True,
-                message=f"I have searched the web for {query}.",
+                user_message=f"Searching for {query}.",
+                developer_message=f"I have searched the web for {query}.",
                 duration=duration,
                 data={"query": query, "url": url}
             )
         except Exception as e:
             logger.error(f"Failed to search web: {e}")
-            duration = time.time() - start_time
-            return ToolResult(
-                tool_name=self.name,
-                success=False,
-                message=f"Failed to search the web: {e}",
-                duration=duration
-            )
+            res = self.error_result(e)
+            res.duration = time.time() - start_time
+            return res

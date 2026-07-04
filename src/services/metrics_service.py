@@ -22,6 +22,9 @@ class MetricsService:
         self.tool_usage = {}
         self.successful_executions = 0
         self.failed_executions = 0
+        self.total_transcriptions = 0
+        self.normalized_transcriptions = 0
+        self.corrected_terms = {}
         
     def record_planner_latency(self, latency: float) -> None:
         if ENABLE_METRICS:
@@ -40,6 +43,16 @@ class MetricsService:
             self.successful_executions += 1
         else:
             self.failed_executions += 1
+
+    def record_normalization(self, was_normalized: bool, terms: list[str]) -> None:
+        if not ENABLE_METRICS:
+            return
+            
+        self.total_transcriptions += 1
+        if was_normalized:
+            self.normalized_transcriptions += 1
+            for term in terms:
+                self.corrected_terms[term] = self.corrected_terms.get(term, 0) + 1
 
     def _compute_stats(self, data: list) -> dict:
         """Helper to compute statistics for a given raw array."""
@@ -67,6 +80,8 @@ class MetricsService:
         success_rate = (self.successful_executions / total_exec * 100) if total_exec > 0 else 0.0
         failure_rate = (self.failed_executions / total_exec * 100) if total_exec > 0 else 0.0
         
+        normalization_rate = (self.normalized_transcriptions / self.total_transcriptions * 100) if self.total_transcriptions > 0 else 0.0
+        
         summary = [
             "",
             "Metrics Summary",
@@ -83,12 +98,19 @@ class MetricsService:
             "Overall:",
             f"  Success Rate: {success_rate:.1f}%",
             f"  Failure Rate: {failure_rate:.1f}%",
+            f"  Normalization Rate: {normalization_rate:.1f}%",
             "-" * 20,
             "Tool Usage:"
         ]
         
         for tool, count in sorted(self.tool_usage.items(), key=lambda x: x[1], reverse=True):
             summary.append(f"  {tool}: {count}")
+            
+        if self.corrected_terms:
+            summary.append("-" * 20)
+            summary.append("Most Corrected Terms:")
+            for term, count in sorted(self.corrected_terms.items(), key=lambda x: x[1], reverse=True)[:5]:
+                summary.append(f"  {term}: {count}")
             
         summary.append("")
         

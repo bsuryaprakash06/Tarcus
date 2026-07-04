@@ -1,6 +1,7 @@
 import psutil
 from src.tools.base_tool import BaseTool, SafetyLevel
 from src.models.plan import ToolResult, ExecutionContext
+from src.models.error_codes import ErrorCode
 from src.utils.settings import DRY_RUN
 
 class CloseApplicationTool(BaseTool):
@@ -45,16 +46,19 @@ class CloseApplicationTool(BaseTool):
             return ToolResult(
                 tool_name=self.name,
                 success=False,
-                message="Application name must be provided.",
-                duration=0.0
+                user_message="I'm missing some required information.",
+                    developer_message="Application name must be provided.",
+                    error_code=ErrorCode.VALIDATION_ERROR,
+                    duration=0.0
             )
             
         if DRY_RUN:
             return ToolResult(
                 tool_name=self.name,
                 success=True,
-                message=f"[DRY RUN] Would attempt to terminate process matching '{app_name}'.",
-                duration=0.0
+                user_message=f"Simulating attempt to terminate process matching '{app_name}'.",
+                    developer_message=f"[DRY RUN] Would attempt to terminate process matching '{app_name}'.",
+                    duration=0.0
             )
 
         terminated_count = 0
@@ -69,20 +73,18 @@ class CloseApplicationTool(BaseTool):
                 return ToolResult(
                     tool_name=self.name,
                     success=True,
-                    message=f"Successfully sent termination signal to {terminated_count} process(es) matching '{app_name}'.",
+                    user_message="Action completed successfully.",
+                    developer_message=f"Successfully sent termination signal to {terminated_count} process(es) matching '{app_name}'.",
                     duration=0.0
                 )
             else:
                 return ToolResult(
                     tool_name=self.name,
                     success=False,
-                    message=f"No running processes found matching '{app_name}'.",
+                    user_message="I couldn't complete that action.",
+                    developer_message=f"No running processes found matching '{app_name}'.",
+                    error_code=ErrorCode.VALIDATION_ERROR,
                     duration=0.0
                 )
         except Exception as e:
-            return ToolResult(
-                tool_name=self.name,
-                success=False,
-                message=f"Failed to terminate application: {str(e)}",
-                duration=0.0
-            )
+            return self.error_result(e)

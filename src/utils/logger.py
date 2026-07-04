@@ -18,8 +18,8 @@ def get_logger(name: str) -> logging.Logger:
     """Returns a configured logger with the given name."""
     return logging.getLogger(name)
 
-def log_structured_tool_result(logger_instance: logging.Logger, execution_id: str, tool_name: str, arguments: dict, status: str, duration: float, message: str) -> None:
-    """Logs a clean, vertical, structured tool execution block."""
+def log_structured_tool_result(logger_instance: logging.Logger, execution_id: str, tool_name: str, arguments: dict, status: str, duration: float, developer_message: str, error_code: str = "", stack_trace: str = "") -> None:
+    """Logs a clean, vertical, structured tool execution block without leaking user messages."""
     arg_str = ", ".join([f"{k} = {v}" for k, v in arguments.items()])
     if not arg_str:
         arg_str = "None"
@@ -36,16 +36,36 @@ def log_structured_tool_result(logger_instance: logging.Logger, execution_id: st
         f"  {arg_str}",
         "",
         "Status",
-        f"  {status}",
+        f"  {status}"
+    ]
+    
+    if error_code:
+        block.extend([
+            "",
+            "Error Code",
+            f"  {error_code}"
+        ])
+        
+    block.extend([
         "",
         "Duration",
         f"  {int(duration * 1000)} ms",
         "",
-        "Message",
-        f"  {message}",
+        "Developer Message",
+        f"  {developer_message}"
+    ])
+    
+    if stack_trace and DEBUG_MODE:
+        block.extend([
+            "",
+            "Stack Trace",
+            f"  {stack_trace}"
+        ])
+        
+    block.extend([
         "=" * 32,
         ""
-    ]
+    ])
     
     logger_instance.info("\n".join(block))
 
