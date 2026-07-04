@@ -41,26 +41,23 @@ class TestExecutorService(unittest.TestCase):
         self.registry.register(self.mock_tool)
         self.executor = ExecutorService(tool_registry=self.registry)
 
-    @patch("pyperclip.paste")
     @patch("os.getlogin")
-    def test_get_current_context(self, mock_login, mock_paste):
+    def test_get_current_context(self, mock_login):
         mock_login.return_value = "john_doe"
-        mock_paste.return_value = "clipboard_text"
         
         context = self.executor.get_current_context()
         
         self.assertIsInstance(context, ExecutionContext)
         self.assertEqual(context.user, "john_doe")
-        self.assertEqual(context.clipboard, "clipboard_text")
         self.assertIsNotNone(context.cwd)
         self.assertIsNotNone(context.os)
         self.assertIsNotNone(context.time)
+        self.assertIsNotNone(context.session_id)
+        self.assertIsNotNone(context.execution_id)
 
-    @patch("pyperclip.paste")
     @patch("os.getlogin")
-    def test_execute_plan_success(self, mock_login, mock_paste):
+    def test_execute_plan_success(self, mock_login):
         mock_login.return_value = "john_doe"
-        mock_paste.return_value = ""
         
         plan = ExecutionPlan(plan=[
             PlanItem(tool="mock_tool", arguments={"param": "hello"}),
@@ -78,11 +75,9 @@ class TestExecutorService(unittest.TestCase):
         self.assertTrue(results[1].success)
         self.assertEqual(results[1].message, "Executed with world")
 
-    @patch("pyperclip.paste")
     @patch("os.getlogin")
-    def test_execute_plan_tool_not_found(self, mock_login, mock_paste):
+    def test_execute_plan_tool_not_found(self, mock_login):
         mock_login.return_value = "john_doe"
-        mock_paste.return_value = ""
         
         plan = ExecutionPlan(plan=[
             PlanItem(tool="unknown_tool", arguments={})
@@ -94,11 +89,9 @@ class TestExecutorService(unittest.TestCase):
         self.assertFalse(results[0].success)
         self.assertIn("is not supported", results[0].message)
 
-    @patch("pyperclip.paste")
     @patch("os.getlogin")
-    def test_execute_plan_tool_failure(self, mock_login, mock_paste):
+    def test_execute_plan_tool_failure(self, mock_login):
         mock_login.return_value = "john_doe"
-        mock_paste.return_value = ""
         
         plan = ExecutionPlan(plan=[
             PlanItem(tool="mock_tool", arguments={"param": "fail"})
@@ -110,11 +103,9 @@ class TestExecutorService(unittest.TestCase):
         self.assertFalse(results[0].success)
         self.assertEqual(results[0].message, "Simulated tool failure.")
 
-    @patch("pyperclip.paste")
     @patch("os.getlogin")
-    def test_execute_plan_tool_exception(self, mock_login, mock_paste):
+    def test_execute_plan_tool_exception(self, mock_login):
         mock_login.return_value = "john_doe"
-        mock_paste.return_value = ""
         
         plan = ExecutionPlan(plan=[
             PlanItem(tool="mock_tool", arguments={"param": "error"})

@@ -23,7 +23,8 @@ class TestTools(unittest.TestCase):
             os="win32",
             user="test_user",
             time="2026-06-25 12:00:00",
-            clipboard=""
+            session_id="test_session",
+            execution_id="test_exec"
         )
 
     def tearDown(self):

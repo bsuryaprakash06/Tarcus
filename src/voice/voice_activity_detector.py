@@ -41,8 +41,8 @@ class VoiceActivityDetector:
         if not self.enabled:
             return
             
-        # Calculate RMS energy of the frame
-        rms_energy = np.sqrt(np.mean(np.square(indata)))
+        # Calculate RMS energy of the frame (cast to float to avoid overflow)
+        rms_energy = np.sqrt(np.mean(np.square(indata.astype(np.float32))))
         
         if rms_energy > self.threshold:
             self.last_speech_time = time.time()
