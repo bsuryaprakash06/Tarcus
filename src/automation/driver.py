@@ -1,48 +1,54 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Any
+from typing import Optional, Any, List
+from src.models.target import Target
+from src.models.interaction import InteractionContext
 from src.models.ui_element import UIElementHandle
 
-class AutomationDriver(ABC):
-    """Abstract interface for all UI Automation Backends (Windows, Playwright, AT-SPI, Mac, Vision)."""
+class AutomationBackend(ABC):
+    """
+    Universal interface for all automation backends.
+    All actions operate on a resolved Target within an InteractionContext.
+    """
     
     @property
     @abstractmethod
-    def driver_name(self) -> str:
+    def backend_name(self) -> str:
         pass
 
     @abstractmethod
-    def find_window(self, name: str, class_name: str = None) -> Optional[UIElementHandle]:
+    def discover_targets(self) -> List[Target]:
+        """Polls the environment and returns a list of discovered/active targets."""
         pass
         
     @abstractmethod
-    def find_element(self, window: UIElementHandle, locator_strategy: Any, query: str) -> Optional[UIElementHandle]:
+    def activate_target(self, target: Target) -> bool:
+        """Restores and brings the target to the absolute foreground."""
+        pass
+
+    @abstractmethod
+    def find_element(self, context: InteractionContext, query: str) -> Optional[UIElementHandle]:
         pass
         
     @abstractmethod
-    def click(self, element: UIElementHandle, double: bool = False, right: bool = False) -> bool:
+    def click(self, context: InteractionContext, double: bool = False, right: bool = False) -> bool:
         pass
         
     @abstractmethod
-    def type_text(self, element: UIElementHandle, text: str, clear_first: bool = False) -> bool:
+    def type_text(self, context: InteractionContext, text: str, clear_first: bool = False) -> bool:
         pass
         
     @abstractmethod
-    def focus(self, element: UIElementHandle) -> bool:
+    def focus_element(self, context: InteractionContext) -> bool:
         pass
         
     @abstractmethod
-    def scroll(self, element: UIElementHandle, direction: str, amount: int) -> bool:
+    def scroll(self, context: InteractionContext, direction: str, amount: int) -> bool:
         pass
         
     @abstractmethod
-    def read_text(self, element: UIElementHandle) -> str:
+    def read_text(self, context: InteractionContext) -> str:
         pass
         
     @abstractmethod
-    def capture(self, element: Optional[UIElementHandle] = None) -> str:
-        """Returns the path to the captured screenshot."""
-        pass
-        
-    @abstractmethod
-    def build_tree_cache(self, window: UIElementHandle) -> Any:
+    def capture(self, context: InteractionContext) -> str:
         pass

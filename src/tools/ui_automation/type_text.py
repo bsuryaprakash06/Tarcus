@@ -46,44 +46,39 @@ class TypeTextTool(BaseTool):
         if not text:
             return ToolResult(tool_name=self.name, success=False, user_message="Missing text to type.", developer_message="Missing arg: text", duration=0.0)
             
-        element_name = arguments.get("element_name")
         clear_first = arguments.get("clear_first", False)
         
         if DRY_RUN:
             return ToolResult(tool_name=self.name, success=True, user_message=f"[DRY RUN] Would type: '{text}'", developer_message="", duration=0.0)
             
-        driver = WindowsDriver()
-        executor = ActionExecutor(driver)
-        
         start_time = time.time()
         try:
-            active_window_name = context.automation.session.active_window if context and getattr(context, "automation", None) else None
-            if not active_window_name:
-                from src.automation.window_manager import WindowManager
-                active_window_name = WindowManager.get_foreground_window()
+            # 1. Grab Universal Context
+            interaction = context.interaction if context else None
+            if not interaction or not interaction.current_target:
+                return ToolResult(tool_name=self.name, success=False, user_message="No active target to type into.", developer_message="InteractionContext missing or empty", duration=0.0)
                 
-            if not active_window_name:
-                return ToolResult(tool_name=self.name, success=False, user_message="No active window.", developer_message="active_window is None", duration=0.0)
+            # 2. Check Target Capability dynamically
+            from src.models.target import TargetCapability
+            if not interaction.current_target.can(TargetCapability.TYPING):
+                return ToolResult(tool_name=self.name, success=False, user_message="There isn't an editable text field in the current target.", developer_message=f"Target {interaction.current_target.id} lacks TYPING capability", duration=0.0)
                 
-            win_handle = driver.find_window(active_window_name)
-            if not win_handle:
-                return ToolResult(tool_name=self.name, success=False, user_message="Active window lost.", developer_message="", duration=0.0)
+            # 3. Use abstract Backend and FocusManager
+            from src.automation.windows_driver import WindowsDriver
+            from src.automation.focus_manager import FocusManager
             
-            target_handle = win_handle
-            if element_name:
-                el_handle = driver.find_element(win_handle, None, element_name)
-                if el_handle:
-                    target_handle = el_handle
+            # TODO: The handler will inject the correct backend (Windows, Mac, Browser). We hardcode for now.
+            backend = WindowsDriver() 
+            focus_manager = FocusManager(backend)
             
-            result = executor.type_text(target_handle, text, clear_first)
-            
-            if result.success and context and getattr(context, "automation", None):
-                context.automation.session.last_action = "TYPE"
-                context.automation.add_recent_element(target_handle.ui_element)
+            if not focus_manager.prepare_for_interaction(interaction, TargetCapability.TYPING):
+                return ToolResult(tool_name=self.name, success=False, user_message="Failed to focus the target element.", developer_message="FocusManager rejected interaction", duration=0.0)
                 
+            success = backend.type_text(interaction, text, clear_first)
+            
             return ToolResult(
                 tool_name=self.name,
-                success=result.success,
+                success=success,
                 user_message=f"Typed '{text}'.",
                 developer_message="",
                 duration=time.time() - start_time

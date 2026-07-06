@@ -1,28 +1,52 @@
 import uiautomation as auto
 from typing import Optional, Any, List
-from src.automation.driver import AutomationDriver
+from src.automation.driver import AutomationBackend
 from src.models.ui_element import UIElement, UIElementHandle
+from src.models.target import Target, TargetType, TargetLifecycle, TargetCapability
+from src.models.interaction import InteractionContext
 from src.automation.tree_cache import TreeCache
 from src.automation.locator import CompositeLocator
 from src.utils.logger import get_logger
 
 logger = get_logger("automation.windows_driver")
 
-class WindowsDriver(AutomationDriver):
+class WindowsDriver(AutomationBackend):
     def __init__(self):
         self.tree_cache = TreeCache()
         self.locator = CompositeLocator()
         
     @property
-    def driver_name(self) -> str:
-        return "windows"
+    def backend_name(self) -> str:
+        return "windows_uia"
 
-    def find_window(self, name: str, class_name: str = None) -> Optional[UIElementHandle]:
-        kwargs = {"searchDepth": 1}
-        if name:
-            kwargs["RegexName"] = f"(?i).*{name}.*"
-        if class_name:
-            kwargs["ClassName"] = class_name
+    def discover_targets(self) -> List[Target]:
+        import uiautomation as auto
+        targets = []
+        for win in auto.GetRootControl().GetChildren():
+            if win.ControlTypeName == 'WindowControl' and win.Name:
+                t = Target(
+                    id="", # Assigned by registry
+                    type=TargetType.WINDOW,
+                    backend=self.backend_name,
+                    name=win.Name,
+                    native_handle=str(win.NativeWindowHandle),
+                    lifecycle_state=TargetLifecycle.DISCOVERED,
+                    capabilities=[TargetCapability.TYPING, TargetCapability.CLICKING, TargetCapability.READING, TargetCapability.SCROLLING]
+                )
+                targets.append(t)
+        return targets
+
+    def activate_target(self, target: Target) -> bool:
+        import uiautomation as auto
+        if not target.native_handle: return False
+        try:
+            win = auto.WindowControl(searchDepth=1, NativeWindowHandle=int(target.native_handle))
+            if win.Exists(0, 0):
+                win.SetFocus()
+                return True
+        except:
+            pass
+        return False
             
         auto.SetGlobalSearchTimeout(1.0) # We handle our own retry loops
         try:
@@ -51,10 +75,18 @@ class WindowsDriver(AutomationDriver):
         self.tree_cache.set_tree(window.ui_element.id, nodes)
         return nodes
         
-    def find_element(self, window: UIElementHandle, locator_strategy: Any, query: str) -> Optional[UIElementHandle]:
-        nodes = self.tree_cache.get_tree(window.ui_element.id)
-        if nodes is None:
-            nodes = self.build_tree_cache(window)
+    def find_element(self, context: InteractionContext, query: str) -> Optional[UIElementHandle]:
+        if not context.current_target or not context.current_target.native_handle: return None
+        
+        # We need the root UIElementHandle for the window
+        import uiautomation as auto
+        win_control = auto.WindowControl(searchDepth=1, NativeWindowHandle=int(context.current_target.native_handle))
+        if not win_control.Exists(0,0): return None
+        
+        # Fast query cache logic
+        nodes = []
+        for control, depth in auto.WalkControl(win_control, includeTop=True):
+            nodes.append(control)
             
         best_node, score = self.locator.find_best_match(nodes, query)
         if best_node:
@@ -75,8 +107,9 @@ class WindowsDriver(AutomationDriver):
             return UIElementHandle(backend_reference=best_node, cached_locator=query, ui_element=el)
         return None
         
-    def click(self, element: UIElementHandle, double: bool = False, right: bool = False) -> bool:
-        control = element.backend_reference
+    def click(self, context: InteractionContext, double: bool = False, right: bool = False) -> bool:
+        if not context.focused_element: return False
+        control = context.focused_element.backend_reference
         try:
             if right:
                 control.RightClick()
@@ -89,8 +122,9 @@ class WindowsDriver(AutomationDriver):
             logger.error(f"Click failed: {e}")
             return False
             
-    def type_text(self, element: UIElementHandle, text: str, clear_first: bool = False) -> bool:
-        control = element.backend_reference
+    def type_text(self, context: InteractionContext, text: str, clear_first: bool = False) -> bool:
+        if not context.focused_element: return False
+        control = context.focused_element.backend_reference
         try:
             if clear_first:
                 control.SendKeys('{Ctrl}a{Delete}')
@@ -100,8 +134,9 @@ class WindowsDriver(AutomationDriver):
             logger.error(f"Type failed: {e}")
             return False
             
-    def focus(self, element: UIElementHandle) -> bool:
-        control = element.backend_reference
+    def focus_element(self, context: InteractionContext) -> bool:
+        if not context.focused_element: return False
+        control = context.focused_element.backend_reference
         try:
             control.SetFocus()
             return True
@@ -109,8 +144,9 @@ class WindowsDriver(AutomationDriver):
             logger.error(f"Focus failed: {e}")
             return False
             
-    def scroll(self, element: UIElementHandle, direction: str, amount: int) -> bool:
-        control = element.backend_reference
+    def scroll(self, context: InteractionContext, direction: str, amount: int) -> bool:
+        if not context.focused_element: return False
+        control = context.focused_element.backend_reference
         try:
             if direction.lower() == "down":
                 control.WheelDown(amount)
@@ -121,14 +157,14 @@ class WindowsDriver(AutomationDriver):
             logger.error(f"Scroll failed: {e}")
             return False
             
-    def read_text(self, element: UIElementHandle) -> str:
-        control = element.backend_reference
+    def read_text(self, context: InteractionContext) -> str:
+        if not context.focused_element: return ""
+        control = context.focused_element.backend_reference
         try:
             return control.Name or ""
         except Exception as e:
             logger.error(f"Read text failed: {e}")
             return ""
             
-    def capture(self, element: Optional[UIElementHandle] = None) -> str:
-        # Handled by separate screenshot provider
+    def capture(self, context: InteractionContext) -> str:
         return ""

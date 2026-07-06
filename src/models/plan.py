@@ -1,6 +1,9 @@
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
 from src.models.error_codes import ErrorCode
+from src.models.context_scope import AutomationContext, KnowledgeContext, ConversationContext, SystemContext
+from src.models.interaction import InteractionContext
 
 class PlanItem(BaseModel):
     """Represents a single step in the execution plan."""
@@ -13,12 +16,12 @@ class ExecutionPlan(BaseModel):
 
 class ExecutionContext(BaseModel):
     """Represents the context under which tools are executed."""
-    cwd: str = Field(description="The current working directory.")
-    os: str = Field(description="The operating system name.")
-    user: str = Field(description="The current active user username.")
-    time: str = Field(description="The current system time.")
-    session_id: str = Field(description="Unique identifier for the current application session.")
-    execution_id: str = Field(description="Unique identifier for this specific tool execution pass.")
+    system: SystemContext = Field(default_factory=SystemContext)
+    automation: AutomationContext = Field(default_factory=AutomationContext)
+    interaction: Optional[InteractionContext] = None
+    knowledge: KnowledgeContext = Field(default_factory=KnowledgeContext)
+    conversation: ConversationContext = Field(default_factory=ConversationContext)
+    history: List[str] = Field(default_factory=list)
 
 class ToolResult(BaseModel):
     """Represents the structured result of executing a single tool."""
