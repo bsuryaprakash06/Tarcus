@@ -39,24 +39,28 @@ class FocusWindowTool(BaseTool):
         if DRY_RUN:
             return ToolResult(tool_name=self.name, success=True, user_message=f"[DRY RUN] Would focus window: {window_name}", developer_message="", duration=0.0)
             
-        driver = WindowsDriver()
-        executor = ActionExecutor(driver)
-        
         start_time = time.time()
         try:
-            handle = driver.find_window(window_name)
-            if not handle:
-                return ToolResult(tool_name=self.name, success=False, user_message=f"Could not find window: {window_name}", developer_message="Driver returned None", duration=0.0)
+            from src.automation.target_resolver import TargetResolver
+            from src.automation.target_selector import TargetSelector
+            from src.automation.windows_driver import WindowsDriver
             
-            result = executor.focus(handle)
+            resolver = TargetResolver()
+            target = resolver.resolve(window_name)
             
-            if result.success and context and getattr(context, "automation", None):
-                context.automation.session.active_window = handle.ui_element.name
-                
+            if not target:
+                return ToolResult(tool_name=self.name, success=False, user_message=f"Could not find window: {window_name}", developer_message="TargetResolver returned None", duration=0.0)
+            
+            # Select it globally so other tools know the context
+            TargetSelector().set_current_target(target)
+            
+            backend = WindowsDriver()
+            success = backend.activate_target(target)
+            
             return ToolResult(
                 tool_name=self.name,
-                success=result.success,
-                user_message=f"Focused {window_name}." if result.success else f"Failed to focus {window_name}.",
+                success=success,
+                user_message=f"Focused {window_name}." if success else f"Failed to focus {window_name}.",
                 developer_message="",
                 duration=time.time() - start_time
             )

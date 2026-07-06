@@ -43,56 +43,46 @@ class ClickElementTool(BaseTool):
         
     def execute(self, arguments: dict, context: ExecutionContext = None) -> ToolResult:
         element_name = arguments.get("element_name")
-        if not element_name and not (context and context.automation.recent_elements):
-            return ToolResult(tool_name=self.name, success=False, user_message="Missing element name.", developer_message="Missing arg: element_name", duration=0.0)
-            
         double = arguments.get("double_click", False)
         right = arguments.get("right_click", False)
         
         if DRY_RUN:
             return ToolResult(tool_name=self.name, success=True, user_message=f"[DRY RUN] Would click element: {element_name}", developer_message="", duration=0.0)
             
-        driver = WindowsDriver()
-        executor = ActionExecutor(driver)
-        
         start_time = time.time()
         try:
-            active_window_name = context.automation.session.active_window if context and getattr(context, "automation", None) else None
-            if not active_window_name:
-                # Fallback to foreground window
-                from src.automation.window_manager import WindowManager
-                active_window_name = WindowManager.get_foreground_window()
+            interaction = context.interaction if context else None
+            if not interaction or not interaction.current_target:
+                return ToolResult(tool_name=self.name, success=False, user_message="No active target to click.", developer_message="InteractionContext missing or empty", duration=0.0)
                 
-            if not active_window_name:
-                return ToolResult(tool_name=self.name, success=False, user_message="No active window to click inside.", developer_message="active_window is None", duration=0.0)
+            from src.models.target import TargetCapability
+            if not interaction.current_target.can(TargetCapability.CLICKING):
+                return ToolResult(tool_name=self.name, success=False, user_message="The current target does not support clicking.", developer_message=f"Target lacks CLICKING capability", duration=0.0)
                 
-            win_handle = driver.find_window(active_window_name)
-            if not win_handle:
-                return ToolResult(tool_name=self.name, success=False, user_message="Active window lost.", developer_message="", duration=0.0)
+            from src.automation.windows_driver import WindowsDriver
+            from src.automation.focus_manager import FocusManager
             
-            # Resolve Handle (Handle Pronoun "it" vs Named)
-            el_handle = None
-            if element_name and element_name.lower() in ("it", "that", "this", "them"):
-                if context and context.automation.recent_elements:
-                    recent = context.automation.recent_elements[0] # Just need the name to re-search, or we'd ideally cache the actual handle. For now, search by name again to be safe.
-                    el_handle = driver.find_element(win_handle, None, recent.name)
-            else:
-                el_handle = driver.find_element(win_handle, None, element_name)
-                
-            if not el_handle:
-                return ToolResult(tool_name=self.name, success=False, user_message=f"Could not find element: {element_name}", developer_message="Locator returned None", duration=0.0)
+            backend = WindowsDriver() 
+            focus_manager = FocusManager(backend)
             
-            result = executor.click(el_handle, double, right)
+            # Find the element specifically
+            if element_name and element_name.lower() not in ("it", "that", "this", "them"):
+                el_handle = backend.find_element(interaction, element_name)
+                if not el_handle:
+                    return ToolResult(tool_name=self.name, success=False, user_message=f"Could not find element: {element_name}", developer_message="Locator returned None", duration=0.0)
+                interaction.focused_element = el_handle.ui_element
+            elif not interaction.focused_element:
+                return ToolResult(tool_name=self.name, success=False, user_message="I don't know what to click.", developer_message="No element specified and no prior context", duration=0.0)
             
-            if result.success and context and getattr(context, "automation", None):
-                context.automation.session.last_locator = element_name
-                context.automation.session.last_action = "CLICK"
-                context.automation.add_recent_element(el_handle.ui_element)
+            if not focus_manager.prepare_for_interaction(interaction, TargetCapability.CLICKING):
+                return ToolResult(tool_name=self.name, success=False, user_message="Failed to focus the target element.", developer_message="FocusManager rejected interaction", duration=0.0)
                 
+            success = backend.click(interaction, double, right)
+            
             return ToolResult(
                 tool_name=self.name,
-                success=result.success,
-                user_message=f"Clicked '{element_name}'.",
+                success=success,
+                user_message=f"Clicked '{element_name or 'the item'}'.",
                 developer_message="",
                 duration=time.time() - start_time
             )

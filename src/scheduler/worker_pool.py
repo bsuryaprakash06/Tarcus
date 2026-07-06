@@ -30,15 +30,19 @@ class WorkerPool:
             self.futures.append(future)
             
     def _worker_loop(self, worker_id: int):
+        import pythoncom
+        pythoncom.CoInitialize()
         logger.debug(f"Worker {worker_id} started.")
-        while True:
-            node = self.queue.get_next_ready()
-            if not node:
-                break # Queue is empty and graph is complete/cancelled
-                
-            self._execute_node(worker_id, node)
-            
-        logger.debug(f"Worker {worker_id} exiting.")
+        try:
+            while True:
+                node = self.queue.get_next_ready()
+                if not node:
+                    break # Queue is empty and graph is complete/cancelled
+                    
+                self._execute_node(worker_id, node)
+        finally:
+            logger.debug(f"Worker {worker_id} exiting.")
+            pythoncom.CoUninitialize()
         
     def _execute_node(self, worker_id: int, node: ExecutionNode):
         node.started_at = time.time()

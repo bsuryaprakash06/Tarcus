@@ -44,27 +44,27 @@ class ScrollWindowTool(BaseTool):
         if DRY_RUN:
             return ToolResult(tool_name=self.name, success=True, user_message=f"[DRY RUN] Would scroll {direction} by {amount}", developer_message="", duration=0.0)
             
-        driver = WindowsDriver()
-        
         start_time = time.time()
         try:
-            active_window_name = context.automation.session.active_window if context and getattr(context, "automation", None) else None
-            if not active_window_name:
-                from src.automation.window_manager import WindowManager
-                active_window_name = WindowManager.get_foreground_window()
+            interaction = context.interaction if context else None
+            if not interaction or not interaction.current_target:
+                return ToolResult(tool_name=self.name, success=False, user_message="No active target to scroll.", developer_message="InteractionContext missing or empty", duration=0.0)
                 
-            if not active_window_name:
-                return ToolResult(tool_name=self.name, success=False, user_message="No active window.", developer_message="active_window is None", duration=0.0)
+            from src.models.target import TargetCapability
+            if not interaction.current_target.can(TargetCapability.SCROLLING):
+                return ToolResult(tool_name=self.name, success=False, user_message="The current target does not support scrolling.", developer_message=f"Target lacks SCROLLING capability", duration=0.0)
                 
-            win_handle = driver.find_window(active_window_name)
-            if not win_handle:
-                return ToolResult(tool_name=self.name, success=False, user_message="Active window lost.", developer_message="", duration=0.0)
+            from src.automation.windows_driver import WindowsDriver
+            from src.automation.focus_manager import FocusManager
             
-            success = driver.scroll(win_handle, direction, amount)
+            backend = WindowsDriver() 
+            focus_manager = FocusManager(backend)
             
-            if success and context and getattr(context, "automation", None):
-                context.automation.session.last_action = "SCROLL"
+            if not focus_manager.prepare_for_interaction(interaction, TargetCapability.SCROLLING):
+                return ToolResult(tool_name=self.name, success=False, user_message="Failed to focus the target element.", developer_message="FocusManager rejected interaction", duration=0.0)
                 
+            success = backend.scroll(interaction, direction, amount)
+            
             return ToolResult(
                 tool_name=self.name,
                 success=success,
