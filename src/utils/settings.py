@@ -105,6 +105,14 @@ if LLM_PROVIDER == "groq":
     if not _active_key or "your_" in _active_key.lower():
         LLM_PROVIDER = "ollama"
 
+# Task Scheduler & Parallel Execution Settings
+ENABLE_TASK_SCHEDULER = os.environ.get("ENABLE_TASK_SCHEDULER", "True").lower() == "true"
+MAX_WORKER_THREADS = int(os.environ.get("MAX_WORKER_THREADS", "4"))
+ENABLE_PARALLEL_EXECUTION = os.environ.get("ENABLE_PARALLEL_EXECUTION", "True").lower() == "true"
+MAX_CONCURRENT_LLM_REQUESTS = int(os.environ.get("MAX_CONCURRENT_LLM_REQUESTS", "3"))
+TASK_TIMEOUT_SECONDS = float(os.environ.get("TASK_TIMEOUT_SECONDS", "60.0"))
+ENABLE_STREAMING_RESPONSES = os.environ.get("ENABLE_STREAMING_RESPONSES", "True").lower() == "true"
+
 # Ensure runtime directories exist
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
 SOUNDS_DIR.mkdir(parents=True, exist_ok=True)

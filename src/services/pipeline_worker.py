@@ -22,12 +22,11 @@ from src.models.request_context import RequestContext
 from src.models.response import ResponseProfile, ResponseMode
 from src.utils.settings import DEFAULT_RESPONSE_STYLE
 
-# New Task Decomposer & Merger Services
+# New Scheduler Services
 from src.task_decomposer.decomposer import TaskDecomposer
-from src.task_decomposer.execution_graph_builder import ExecutionGraphBuilder
-from src.task_decomposer.request_scheduler import RequestScheduler
-from src.workflow.workflow_composer import WorkflowComposer
-from src.services.response_merger import ResponseMerger
+from src.scheduler.execution_planner import ExecutionPlanner
+from src.scheduler.scheduler import Scheduler
+from src.scheduler.response_aggregator import ResponseAggregator
 
 logger = get_logger("pipeline.worker")
 
@@ -43,10 +42,9 @@ class PipelineWorker(threading.Thread):
         self.dialogue_manager = DialogueManager()
         
         self.task_decomposer = TaskDecomposer()
-        self.graph_builder = ExecutionGraphBuilder()
-        self.scheduler = RequestScheduler()
-        self.workflow_composer = WorkflowComposer()
-        self.response_merger = ResponseMerger()
+        self.execution_planner = ExecutionPlanner()
+        self.scheduler_engine = Scheduler()
+        self.response_aggregator = ResponseAggregator()
         
         self.router_service = IntentRouterService()
         self.llm_service = LLMService()
@@ -161,85 +159,76 @@ class PipelineWorker(threading.Thread):
         # 1. Task Decomposition
         atomic_tasks = self.task_decomposer.decompose(normalized_text)
         
-        # 2. Execution Graph Building
-        execution_graph = self.graph_builder.build(atomic_tasks)
-        
-        # 3. Request Scheduling
-        scheduled_batches = self.scheduler.schedule(execution_graph)
-        
-        responses = []
+        # 2. Intent Routing & LLM Planning (Sequential Data Gathering)
         automation_plans = []
+        knowledge_requests = []
+        conversation_responses = []
+        fallback_responses = []
         
-        # 4. Route and Process each batch
-        for batch in scheduled_batches:
-            for task in batch:
-                router_result = self.router_service.route_request(task.text)
-                self.event_bus.publish(PipelineEventType.INTENT_CLASSIFIED, {"intent": router_result.intent.value, "destination": router_result.destination})
+        for task in atomic_tasks:
+            router_result = self.router_service.route_request(task.text)
+            self.event_bus.publish(PipelineEventType.INTENT_CLASSIFIED, {"intent": router_result.intent.value, "destination": router_result.destination})
+            
+            # Context Resolution happens AFTER Intent Classification
+            resolved_text, conf = self.dialogue_manager.resolve_reference(task.text, router_result.intent.value)
+            self.event_bus.publish(PipelineEventType.CONTEXT_RESOLVED, {"text": resolved_text, "confidence": conf})
+            
+            if conf < 0.60:
+                self.dialogue_manager.set_pending_clarification(task.text, router_result.intent.value, "Ambiguous pronoun reference")
+                self.event_bus.publish(PipelineEventType.CLARIFICATION_REQUESTED, {"reason": "Ambiguous reference. Please clarify."})
+                fallback_responses.append("I'm not exactly sure what you're referring to. Could you be more specific?")
+                continue
                 
-                # Context Resolution happens AFTER Intent Classification
-                resolved_text, conf = self.dialogue_manager.resolve_reference(task.text, router_result.intent.value)
-                self.event_bus.publish(PipelineEventType.CONTEXT_RESOLVED, {"text": resolved_text, "confidence": conf})
+            router_result.normalized_text = resolved_text
+            
+            if router_result.destination == "Planner":
+                self.event_bus.publish(PipelineEventType.PLANNER_STARTED)
+                plan = self.llm_service.generate_plan(router_result.normalized_text)
+                needs_confirm = self.safety_validator.validate_plan(plan)
                 
-                if conf < 0.60:
-                    self.dialogue_manager.set_pending_clarification(task.text, router_result.intent.value, "Ambiguous pronoun reference")
-                    self.event_bus.publish(PipelineEventType.CLARIFICATION_REQUESTED, {"reason": "Ambiguous reference. Please clarify."})
-                    responses.append({"intent": "WARNING", "text": "I'm not exactly sure what you're referring to. Could you be more specific?"})
-                    continue
-                    
-                router_result.normalized_text = resolved_text
-                
-                if router_result.destination == "Planner":
-                    self.event_bus.publish(PipelineEventType.PLANNER_STARTED)
-                    plan = self.llm_service.generate_plan(router_result.normalized_text)
-                    needs_confirm = self.safety_validator.validate_plan(plan)
-                    
-                    if needs_confirm:
-                        self.dialogue_manager.set_pending_confirmation(plan, "This action requires manual confirmation.")
-                        self.event_bus.publish(PipelineEventType.CONFIRMATION_REQUESTED, {"reason": "Are you sure you want to execute this action?"})
-                        responses.append({"intent": "WARNING", "text": "This action requires manual confirmation. Are you sure?"})
-                    else:
-                        automation_plans.append(plan)
-                        
-                elif router_result.destination == "LLMChatService":
-                    profile = ResponseProfile(mode=ResponseMode.KNOWLEDGE, max_sentences=3, ask_followup=True, style=DEFAULT_RESPONSE_STYLE, verbosity="short")
-                    history_str = self.dialogue_manager.get_history_string()
-                    knowledge_response = self.chat_service.respond(router_result.normalized_text, profile, history_str)
-                    
-                    self.event_bus.publish(PipelineEventType.KNOWLEDGE_GENERATED, {
-                        "primary_topic": knowledge_response.primary_topic,
-                        "secondary_topics": knowledge_response.secondary_topics
-                    })
-                    
-                    responses.append({"intent": "KNOWLEDGE", "text": knowledge_response.answer})
-                    
-                elif router_result.destination == "ConversationService":
-                    history_str = self.dialogue_manager.get_history_string()
-                    response_text = self.conversation_service.respond(router_result.normalized_text, history_str)
-                    responses.append({"intent": "CONVERSATION", "text": response_text})
-                    
+                if needs_confirm:
+                    self.dialogue_manager.set_pending_confirmation(plan, "This action requires manual confirmation.")
+                    self.event_bus.publish(PipelineEventType.CONFIRMATION_REQUESTED, {"reason": "Are you sure you want to execute this action?"})
+                    fallback_responses.append("This action requires manual confirmation. Are you sure?")
                 else:
-                    if router_result.intent.value == "MIXED":
-                        response_text = self.fallback_service.handle_mixed_intent()
-                    elif router_result.confidence < 0.60:
-                        response_text = self.fallback_service.handle_low_confidence()
-                    else:
-                        response_text = self.fallback_service.handle_unknown()
-                    responses.append({"intent": "UNKNOWN", "text": response_text})
+                    automation_plans.append(plan)
                     
-        # 5. Workflow Composition (if any automation tasks exist)
-        if automation_plans:
-            workflow = self.workflow_composer.compose(automation_plans)
+            elif router_result.destination == "LLMChatService":
+                history_str = self.dialogue_manager.get_history_string()
+                knowledge_requests.append({"text": router_result.normalized_text, "history_str": history_str})
+                
+            elif router_result.destination == "ConversationService":
+                history_str = self.dialogue_manager.get_history_string()
+                response_text = self.conversation_service.respond(router_result.normalized_text, history_str)
+                conversation_responses.append(response_text)
+                
+            else:
+                if router_result.intent.value == "MIXED":
+                    response_text = self.fallback_service.handle_mixed_intent()
+                elif router_result.confidence < 0.60:
+                    response_text = self.fallback_service.handle_low_confidence()
+                else:
+                    response_text = self.fallback_service.handle_unknown()
+                fallback_responses.append(response_text)
+                
+        # 3. Execution Planning (Deterministic DAG Building)
+        graph = self.execution_planner.build_graph(automation_plans, knowledge_requests)
+        
+        # 4. Concurrent Scheduling (Execution)
+        summary = self.scheduler_engine.execute(graph)
+        
+        # 5. Response Aggregation
+        final_text = self.response_aggregator.aggregate(summary.results, graph)
+        
+        merged_responses = []
+        if conversation_responses:
+            merged_responses.append(" ".join(conversation_responses))
+        if final_text:
+            merged_responses.append(final_text)
+        if fallback_responses:
+            merged_responses.append(" ".join(fallback_responses))
             
-            # Use threading to execute workflow so we don't block the Response Merger from speaking?
-            # Actually, WorkflowEngine execution blocks until completed or failed.
-            # We execute it immediately. 
-            self.workflow_service.execute_workflow(workflow)
-            
-            # Assuming it succeeded, we acknowledge. (A real implementation would check workflow.status)
-            responses.append({"intent": "AUTOMATION", "text": "Execution completed successfully."})
-            
-        # 6. Response Merging
-        final_response_text = self.response_merger.merge(responses)
+        final_response_text = " ".join(merged_responses).strip()
         if final_response_text:
             self._respond(final_response_text, ResponseMode.CONVERSATION)
 
