@@ -92,6 +92,13 @@ ENABLE_VOICE_INPUT = os.environ.get("ENABLE_VOICE_INPUT", "True").lower() == "tr
 ENABLE_WORKFLOW_PANEL = os.environ.get("ENABLE_WORKFLOW_PANEL", "True").lower() == "true"
 ENABLE_STATUS_BAR = os.environ.get("ENABLE_STATUS_BAR", "True").lower() == "true"
 
+# UI Automation Settings
+ENABLE_UI_AUTOMATION = os.environ.get("ENABLE_UI_AUTOMATION", "True").lower() == "true"
+AUTOMATION_DRIVER = os.environ.get("AUTOMATION_DRIVER", "windows").lower()
+ELEMENT_SEARCH_TIMEOUT = float(os.environ.get("ELEMENT_SEARCH_TIMEOUT", "10.0"))
+MAX_ELEMENT_RETRIES = int(os.environ.get("MAX_ELEMENT_RETRIES", "3"))
+ENABLE_FUZZY_MATCHING = os.environ.get("ENABLE_FUZZY_MATCHING", "True").lower() == "true"
+
 # Automatic Fallback: If Groq is primary but no valid API key is present, fallback to local Ollama (Llama)
 if LLM_PROVIDER == "groq":
     _active_key = GROQ_API_KEY or API_KEY

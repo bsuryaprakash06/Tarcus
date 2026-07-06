@@ -13,8 +13,20 @@ class AutomationEntity(BaseModel):
     confidence: float = 1.0
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
+from src.models.ui_element import UIElement
+
+class AutomationSession(BaseModel):
+    active_window: Optional[str] = None
+    focused_element: Optional[UIElement] = None
+    last_locator: Optional[str] = None
+    last_action: Optional[str] = None
+    current_backend: str = "windows"
+    last_ui_snapshot: Optional[str] = None
+
 class AutomationContext(BaseModel):
     """Memory bucket dedicated entirely to Automation elements"""
+    session: AutomationSession = Field(default_factory=AutomationSession)
+    recent_elements: List[UIElement] = Field(default_factory=list)
     applications: List[AutomationEntity] = Field(default_factory=list)
     files: List[AutomationEntity] = Field(default_factory=list)
     folders: List[AutomationEntity] = Field(default_factory=list)
@@ -37,6 +49,13 @@ class AutomationContext(BaseModel):
             if len(target_list) > 10:
                 target_list.pop()
                 
+        self.last_updated = datetime.now().timestamp()
+        
+    def add_recent_element(self, element: UIElement):
+        self.recent_elements.insert(0, element)
+        if len(self.recent_elements) > 20:
+            self.recent_elements.pop()
+        self.session.focused_element = element
         self.last_updated = datetime.now().timestamp()
 
 class KnowledgeContext(BaseModel):
