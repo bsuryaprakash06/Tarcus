@@ -16,6 +16,13 @@ class ExecutionPlan(BaseModel):
 
 class ExecutionContext(BaseModel):
     """Represents the context under which tools are executed."""
+    cwd: str = Field(default="", description="The current working directory.")
+    os: str = Field(default="", description="The operating system name.")
+    user: str = Field(default="", description="The current active user username.")
+    time: str = Field(default="", description="The current system time.")
+    session_id: str = Field(default="", description="Unique identifier for the current application session.")
+    execution_id: str = Field(default="", description="Unique identifier for this specific tool execution pass.")
+    
     system: SystemContext = Field(default_factory=SystemContext)
     automation: AutomationContext = Field(default_factory=AutomationContext)
     interaction: Optional[InteractionContext] = None

@@ -20,7 +20,7 @@ class TaskDecomposer:
             "1. Split compound sentences (e.g., 'Open notepad and type hello' -> 'Open notepad', 'Type hello').\n"
             "2. Preserve logical execution order.\n"
             "3. Make implicit references explicit (e.g., 'Save it' -> 'Save the file').\n"
-            "4. Return ONLY valid JSON in this exact format: [{\"text\": \"...\", \"order\": 1}]"
+            "4. Return ONLY valid JSON in this exact format: {\"tasks\": [{\"text\": \"...\"}, {\"text\": \"...\"}]}"
         )
         
         try:
@@ -51,12 +51,12 @@ class TaskDecomposer:
                         raise ValueError("Could not find a list of tasks in the JSON response")
             
             tasks = []
-            for item in parsed:
+            for idx, item in enumerate(parsed):
                 tasks.append(
                     AtomicTask(
                         id=str(uuid.uuid4()),
                         text=item["text"],
-                        order=item["order"]
+                        order=item.get("order", item.get("id", idx + 1))
                     )
                 )
             
