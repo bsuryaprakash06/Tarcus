@@ -22,6 +22,16 @@ class WorkflowService:
         self.engine.execute(workflow.workflow_id)
         return workflow.workflow_id
         
+    def execute_workflow(self, workflow) -> str:
+        """Executes a pre-composed workflow from the WorkflowComposer."""
+        if not ENABLE_WORKFLOW_ENGINE:
+            return ""
+            
+        self.active_workflow_id = workflow.workflow_id
+        self.engine.state_manager.save(workflow)
+        self.engine.execute(workflow.workflow_id)
+        return workflow.workflow_id
+        
     def pause(self) -> None:
         """Requests a pause on the currently active workflow."""
         if ENABLE_WORKFLOW_ENGINE and self.active_workflow_id:

@@ -84,6 +84,14 @@ CONTEXT_TIMEOUT_MINUTES = int(os.environ.get("CONTEXT_TIMEOUT_MINUTES", "10"))
 ENABLE_WORKFLOW_ENGINE = os.environ.get("ENABLE_WORKFLOW_ENGINE", "True").lower() == "true"
 MAX_STEP_RETRIES = int(os.environ.get("MAX_STEP_RETRIES", "2"))
 
+# Desktop UI Settings
+ENABLE_DESKTOP_UI = os.environ.get("ENABLE_DESKTOP_UI", "True").lower() == "true"
+DEFAULT_INPUT_MODE = os.environ.get("DEFAULT_INPUT_MODE", "VOICE")
+ENABLE_TEXT_INPUT = os.environ.get("ENABLE_TEXT_INPUT", "True").lower() == "true"
+ENABLE_VOICE_INPUT = os.environ.get("ENABLE_VOICE_INPUT", "True").lower() == "true"
+ENABLE_WORKFLOW_PANEL = os.environ.get("ENABLE_WORKFLOW_PANEL", "True").lower() == "true"
+ENABLE_STATUS_BAR = os.environ.get("ENABLE_STATUS_BAR", "True").lower() == "true"
+
 # Automatic Fallback: If Groq is primary but no valid API key is present, fallback to local Ollama (Llama)
 if LLM_PROVIDER == "groq":
     _active_key = GROQ_API_KEY or API_KEY

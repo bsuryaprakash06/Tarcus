@@ -4,7 +4,7 @@ from typing import Optional
 
 from src.models.plan import ExecutionPlan
 from src.models.workflow import Workflow, WorkflowStep, WorkflowStatus, StepStatus, FailurePolicy
-from src.workflow.workflow_events import WorkflowEventBus, WorkflowEventType
+from src.events.pipeline_events import PipelineEventBus, PipelineEventType
 from src.workflow.dependency_manager import DependencyManager
 from src.workflow.retry_manager import RetryManager
 from src.workflow.workflow_state_manager import WorkflowStateManager
@@ -20,7 +20,7 @@ class WorkflowEngine:
     def __init__(self):
         self.state_manager = WorkflowStateManager()
         self.cancellation_manager = CancellationManager()
-        self.event_bus = WorkflowEventBus()
+        self.event_bus = PipelineEventBus()
         self.executor = ExecutorService()
         
     def _create_workflow_from_plan(self, plan: ExecutionPlan) -> Workflow:
@@ -66,7 +66,7 @@ class WorkflowEngine:
             
         workflow.status = WorkflowStatus.RUNNING
         self.state_manager.save(workflow)
-        self.event_bus.publish(WorkflowEventType.WORKFLOW_STARTED, {"workflow_id": workflow_id})
+        self.event_bus.publish(PipelineEventType.WORKFLOW_STARTED, {"workflow_id": workflow_id})
         
         context = self.executor.get_current_context()
         context.execution_id = workflow.execution_id
@@ -81,9 +81,9 @@ class WorkflowEngine:
                 self.state_manager.save(workflow)
                 
                 if interrupt == WorkflowStatus.PAUSED:
-                    self.event_bus.publish(WorkflowEventType.WORKFLOW_PAUSED, {"workflow_id": workflow_id})
+                    self.event_bus.publish(PipelineEventType.WORKFLOW_PAUSED, {"workflow_id": workflow_id})
                 elif interrupt == WorkflowStatus.CANCELLED:
-                    self.event_bus.publish(WorkflowEventType.WORKFLOW_CANCELLED, {"workflow_id": workflow_id})
+                    self.event_bus.publish(PipelineEventType.WORKFLOW_CANCELLED, {"workflow_id": workflow_id})
                     
                 self.cancellation_manager.clear_request(workflow_id)
                 return
@@ -104,7 +104,7 @@ class WorkflowEngine:
             if step.status == StepStatus.FAILED and step.failure_policy == FailurePolicy.ABORT:
                 workflow.status = WorkflowStatus.FAILED
                 self.state_manager.save(workflow)
-                self.event_bus.publish(WorkflowEventType.WORKFLOW_FAILED, {"workflow_id": workflow_id})
+                self.event_bus.publish(PipelineEventType.WORKFLOW_FAILED, {"workflow_id": workflow_id})
                 return
                 
             # Snapshot state after every single step
@@ -114,11 +114,11 @@ class WorkflowEngine:
         all_success_or_skipped = all(s.status in (StepStatus.SUCCESS, StepStatus.SKIPPED) for s in workflow.steps)
         if all_success_or_skipped:
             workflow.status = WorkflowStatus.COMPLETED
-            self.event_bus.publish(WorkflowEventType.WORKFLOW_COMPLETED, {"workflow_id": workflow_id})
+            self.event_bus.publish(PipelineEventType.WORKFLOW_COMPLETED, {"workflow_id": workflow_id})
             # Keep the state file for history or delete it? We will keep it for now.
         else:
             workflow.status = WorkflowStatus.FAILED
-            self.event_bus.publish(WorkflowEventType.WORKFLOW_FAILED, {"workflow_id": workflow_id})
+            self.event_bus.publish(PipelineEventType.WORKFLOW_FAILED, {"workflow_id": workflow_id})
             
         self.state_manager.save(workflow)
         
@@ -127,25 +127,25 @@ class WorkflowEngine:
         while True:
             step.status = StepStatus.RUNNING
             self.state_manager.save(workflow)
-            self.event_bus.publish(WorkflowEventType.STEP_STARTED, {"step_id": step.step_id, "tool": step.tool})
+            self.event_bus.publish(PipelineEventType.STEP_STARTED, {"step_id": step.step_id, "tool": step.tool})
             
             result = self.executor.execute_step(step, context)
             step.result = result
             
             if result.success:
                 step.status = StepStatus.SUCCESS
-                self.event_bus.publish(WorkflowEventType.STEP_COMPLETED, {"step_id": step.step_id, "result": result.model_dump()})
+                self.event_bus.publish(PipelineEventType.STEP_COMPLETED, {"step_id": step.step_id, "result": result.model_dump()})
                 break
             else:
                 if RetryManager.should_retry(step, result):
                     step.retry_count += 1
                     logger.warning(f"Retrying step {step.step_id} (Attempt {step.retry_count})")
-                    self.event_bus.publish(WorkflowEventType.STEP_RETRY, {"step_id": step.step_id, "retry": step.retry_count})
+                    self.event_bus.publish(PipelineEventType.STEP_RETRY, {"step_id": step.step_id, "retry": step.retry_count})
                     time.sleep(1) # Brief breather before retrying
                     continue
                 else:
                     step.status = StepStatus.FAILED
-                    self.event_bus.publish(WorkflowEventType.STEP_FAILED, {"step_id": step.step_id, "error": result.user_message})
+                    self.event_bus.publish(PipelineEventType.STEP_FAILED, {"step_id": step.step_id, "error": result.user_message})
                     
                     if step.failure_policy == FailurePolicy.SKIP_DEPENDENTS:
                         DependencyManager.skip_dependents(step.step_id, workflow)

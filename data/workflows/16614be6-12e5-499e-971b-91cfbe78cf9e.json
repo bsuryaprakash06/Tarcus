@@ -1,0 +1,46 @@
+{
+  "workflow_id": "16614be6-12e5-499e-971b-91cfbe78cf9e",
+  "parent_workflow_id": null,
+  "execution_id": "b2cb760c",
+  "status": "PENDING",
+  "steps": [
+    {
+      "step_id": "16614be6-12e5-499e-971b-91cfbe78cf9e-step-0",
+      "tool": "open_application",
+      "arguments": {
+        "application": "Notepad"
+      },
+      "status": "WAITING",
+      "retry_count": 0,
+      "result": null,
+      "depends_on": [],
+      "preconditions": [],
+      "timeout": 30,
+      "failure_policy": "SKIP_DEPENDENTS",
+      "rollback_step": null,
+      "metadata": {}
+    },
+    {
+      "step_id": "16614be6-12e5-499e-971b-91cfbe78cf9e-step-1",
+      "tool": "create_file",
+      "arguments": {
+        "name": "test.txt"
+      },
+      "status": "WAITING",
+      "retry_count": 0,
+      "result": null,
+      "depends_on": [
+        "16614be6-12e5-499e-971b-91cfbe78cf9e-step-0"
+      ],
+      "preconditions": [],
+      "timeout": 30,
+      "failure_policy": "SKIP_DEPENDENTS",
+      "rollback_step": null,
+      "metadata": {}
+    }
+  ],
+  "current_step_index": 0,
+  "total_steps": 2,
+  "created_at": 1783368980.644949,
+  "updated_at": 1783368980.64495
+}

@@ -16,7 +16,7 @@ class ConversationService:
     """
     Handles simple pleasantries locally to bypass the LLM entirely, minimizing latency.
     """
-    def respond(self, text: str) -> str:
+    def respond(self, text: str, history_str: str = "") -> str:
         text_lower = text.lower()
         
         # Check local cache first

@@ -1,5 +1,6 @@
 import ctypes
 import os
+import time
 from pathlib import Path
 from queue import Queue
 from src.utils.logger import get_logger
@@ -42,11 +43,19 @@ class AudioService:
                 raise AudioPlaybackError(f"MCI open command failed with code {ret}")
                 
             try:
-                # Play and wait until completion (synchronous)
-                play_command = f'play {alias} wait'
+                # Play asynchronously so Python thread remains unblocked
+                play_command = f'play {alias}'
                 ret = ctypes.windll.winmm.mciSendStringW(play_command, None, 0, 0)
                 if ret != 0:
                     raise AudioPlaybackError(f"MCI play command failed with code {ret}")
+                    
+                # Poll the MCI device status to know when playback is finished
+                status_buffer = ctypes.create_unicode_buffer(256)
+                while self._is_playing:
+                    ctypes.windll.winmm.mciSendStringW(f'status {alias} mode', status_buffer, 255, 0)
+                    if status_buffer.value == "stopped":
+                        break
+                    time.sleep(0.05) # Check 20 times a second for instant cancellation response
             finally:
                 # Always close the device to release system resources
                 close_command = f'close {alias}'
