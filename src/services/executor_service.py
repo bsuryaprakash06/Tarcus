@@ -4,6 +4,7 @@ import time
 import uuid
 from datetime import datetime
 from src.models.plan import ExecutionPlan, ExecutionContext, ToolResult
+from src.models.workflow import WorkflowStep
 from src.tools.registry import ToolRegistry
 from src.utils.logger import get_logger, log_structured_tool_result, dump_debug_json
 from src.services.metrics_service import MetricsService
@@ -60,102 +61,90 @@ class ExecutorService:
             execution_id=execution_id
         )
 
-    def execute_plan(self, plan: ExecutionPlan, session_id: str = "") -> list[ToolResult]:
+    def execute_step(self, step: WorkflowStep, context: ExecutionContext) -> ToolResult:
         """
-        Executes a sequence of planned tool calls and returns the structured results.
+        Executes a single workflow step using the tool registry.
         
         Args:
-            plan: The ExecutionPlan to execute.
-            session_id: The session ID for the execution context.
+            step: The WorkflowStep to execute.
+            context: The ExecutionContext payload.
             
         Returns:
-            list[ToolResult]: List of results for each executed step.
+            ToolResult: The structured result of the tool execution.
         """
-        results = []
-        context = self.get_current_context(session_id)
+        tool_name = step.tool
+        arguments = step.arguments.copy()
         
-        # Structured log of the incoming plan and context
-        logger.info(f"Starting Execution Phase for execution_id: {context.execution_id}")
-        dump_debug_json(logger, "Planner JSON Plan", plan.model_dump())
-        dump_debug_json(logger, "Execution Context", context.model_dump())
+        # Normalize arguments
+        for key, val in arguments.items():
+            if isinstance(val, str):
+                arguments[key] = normalize_query(val)
         
-        for index, item in enumerate(plan.plan, 1):
-            tool_name = item.tool
-            arguments = item.arguments
+        tool = self.registry.get_tool(tool_name)
+        
+        if not tool:
+            msg = f"Tool '{tool_name}' is not supported."
+            logger.error(msg)
+            error_result = ToolResult(
+                tool_name=tool_name,
+                success=False,
+                user_message="I don't know how to perform that action.",
+                developer_message=msg,
+                error_code=ErrorCode.UNKNOWN,
+                duration=0.0
+            )
+            self.metrics.record_tool_usage(tool_name, False)
+            return error_result
             
-            # Normalize arguments
-            for key, val in arguments.items():
-                if isinstance(val, str):
-                    arguments[key] = normalize_query(val)
+        try:
+            start_time = time.time()
+            result = tool.execute(arguments, context)
+            duration = time.time() - start_time
             
-            tool = self.registry.get_tool(tool_name)
+            # Update duration if tool doesn't populate it perfectly
+            if result.duration == 0.0:
+                result.duration = duration
+                
+            self.metrics.record_execution_latency(result.duration)
+            self.metrics.record_tool_usage(tool_name, result.success)
             
-            if not tool:
-                msg = f"Tool '{tool_name}' is not supported."
-                logger.error(msg)
-                error_result = ToolResult(
-                    tool_name=tool_name,
-                    success=False,
-                    user_message="I don't know how to perform that action.",
-                    developer_message=msg,
-                    error_code=ErrorCode.UNKNOWN,
-                    duration=0.0
-                )
-                self.metrics.record_tool_usage(tool_name, False)
-                results.append(error_result)
-                continue
-                
-            try:
-                start_time = time.time()
-                result = tool.execute(arguments, context)
-                duration = time.time() - start_time
-                
-                # Update duration if tool doesn't populate it perfectly
-                if result.duration == 0.0:
-                    result.duration = duration
-                    
-                self.metrics.record_execution_latency(result.duration)
-                self.metrics.record_tool_usage(tool_name, result.success)
-                
-                log_structured_tool_result(
-                    logger_instance=logger,
-                    execution_id=context.execution_id,
-                    tool_name=tool_name,
-                    arguments=arguments,
-                    status="SUCCESS" if result.success else "FAILED",
-                    duration=result.duration,
-                    developer_message=result.developer_message,
-                    error_code=result.error_code.value if result.error_code != ErrorCode.NONE else ""
-                )
-                
-                results.append(result)
-            except Exception as e:
-                msg = f"Error during execution: {e}"
-                stack = traceback.format_exc()
-                logger.error(f"Error executing step {index} ({tool_name}): {e}")
-                self.metrics.record_tool_usage(tool_name, False)
-                
-                mapped_error = ErrorMapper.to_user_message(e)
-                
-                err_result = ToolResult(
-                    tool_name=tool_name,
-                    success=False,
-                    user_message=mapped_error.user_message,
-                    developer_message=msg,
-                    error_code=mapped_error.error_code,
-                    duration=0.0
-                )
-                log_structured_tool_result(
-                    logger_instance=logger,
-                    execution_id=context.execution_id,
-                    tool_name=tool_name,
-                    arguments=arguments,
-                    status="FAILED (EXCEPTION)",
-                    duration=0.0,
-                    developer_message=msg,
-                    error_code=mapped_error.error_code.value,
-                    stack_trace=stack
-                )
-                results.append(err_result)
-                
-        return results
+            log_structured_tool_result(
+                logger_instance=logger,
+                execution_id=context.execution_id,
+                tool_name=tool_name,
+                arguments=arguments,
+                status="SUCCESS" if result.success else "FAILED",
+                duration=result.duration,
+                developer_message=result.developer_message,
+                error_code=result.error_code.value if result.error_code != ErrorCode.NONE else ""
+            )
+            
+            return result
+        except Exception as e:
+            msg = f"Error during execution: {e}"
+            stack = traceback.format_exc()
+            logger.error(f"Error executing tool {tool_name}: {e}")
+            self.metrics.record_tool_usage(tool_name, False)
+            
+            mapped_error = ErrorMapper.to_user_message(e)
+            
+            err_result = ToolResult(
+                tool_name=tool_name,
+                success=False,
+                user_message=mapped_error.user_message,
+                developer_message=msg,
+                error_code=mapped_error.error_code,
+                duration=0.0
+            )
+            log_structured_tool_result(
+                logger_instance=logger,
+                execution_id=context.execution_id,
+                tool_name=tool_name,
+                arguments=arguments,
+                status="FAILED (EXCEPTION)",
+                duration=0.0,
+                developer_message=msg,
+                error_code=mapped_error.error_code.value,
+                stack_trace=stack
+            )
+            return err_result

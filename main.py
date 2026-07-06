@@ -17,6 +17,8 @@ from src.services.llm_chat_service import LLMChatService
 from src.services.conversation_service import ConversationService
 from src.services.fallback_service import FallbackService
 from src.services.context_service import ContextService
+from src.services.workflow_service import WorkflowService
+from src.workflow.workflow_events import WorkflowEventBus, WorkflowEventType
 from src.safety.validator import SafetyValidator, SafetyError
 from src.models.transcription import TranscriptionResult
 from src.models.plan import ExecutionPlan, ToolResult
@@ -48,6 +50,25 @@ fallback_service = FallbackService()
 context_service = ContextService()
 response_formatter_service = ResponseFormatterService()
 safety_validator = SafetyValidator()
+workflow_service = WorkflowService()
+event_bus = WorkflowEventBus()
+
+def _on_step_started(payload):
+    console.print(f"[bold blue]▶ Running step:[/bold blue] {payload.get('tool')}")
+    
+def _on_step_completed(payload):
+    console.print(f"[bold green]✓ Step completed successfully[/bold green]")
+    
+def _on_step_failed(payload):
+    console.print(f"[bold red]❌ Step failed:[/bold red] {payload.get('error')}")
+    
+def _on_step_retry(payload):
+    console.print(f"[bold yellow]⚠️ Retrying step (Attempt {payload.get('retry')})[/bold yellow]")
+
+event_bus.subscribe(WorkflowEventType.STEP_STARTED, _on_step_started)
+event_bus.subscribe(WorkflowEventType.STEP_COMPLETED, _on_step_completed)
+event_bus.subscribe(WorkflowEventType.STEP_FAILED, _on_step_failed)
+event_bus.subscribe(WorkflowEventType.STEP_RETRY, _on_step_retry)
 
 def print_banner():
     console.print("[bold cyan]=================================[/bold cyan]")
@@ -80,15 +101,6 @@ def validate_safety(plan: ExecutionPlan) -> bool:
     Returns True if any confirm-required tools are requested, otherwise False.
     """
     return safety_validator.validate_plan(plan)
-
-def execute(plan: ExecutionPlan, context: RequestContext) -> list[ToolResult]:
-    """
-    Step 3: execute() - runs the sequence of planned tool calls.
-    """
-    context.diagnostics.start_timer("Execution")
-    results = executor_service.execute_plan(plan)
-    context.diagnostics.stop_timer("Execution")
-    return results
 
 def respond(response_text: str, context: RequestContext, profile: ResponseProfile = None) -> None:
     """
@@ -164,6 +176,34 @@ def main():
                     respond(response_text, context, profile)
                     status = AssistantStatus.IDLE
                     continue
+                    
+                # Check for Workflow Interruptions
+                if lower_text in ("pause", "pause workflow", "wait a second"):
+                    workflow_service.pause()
+                    console.print("[bold yellow]⏸️ Workflow paused.[/bold yellow]")
+                    response_text = response_service.formulate_response("I have paused the workflow.", ResponseMode.CONFIRMATION)
+                    profile = ResponseProfile(mode=ResponseMode.CONFIRMATION, max_sentences=1)
+                    respond(response_text, context, profile)
+                    status = AssistantStatus.IDLE
+                    continue
+                    
+                if lower_text in ("continue", "resume", "resume workflow"):
+                    console.print("[bold green]▶️ Workflow resumed.[/bold green]")
+                    response_text = response_service.formulate_response("Resuming execution.", ResponseMode.CONFIRMATION)
+                    profile = ResponseProfile(mode=ResponseMode.CONFIRMATION, max_sentences=1)
+                    respond(response_text, context, profile)
+                    workflow_service.resume()
+                    status = AssistantStatus.IDLE
+                    continue
+                    
+                if lower_text in ("stop", "cancel", "cancel workflow"):
+                    workflow_service.cancel()
+                    console.print("[bold red]⏹️ Workflow cancelled.[/bold red]")
+                    response_text = response_service.formulate_response("Workflow has been cancelled.", ResponseMode.CONFIRMATION)
+                    profile = ResponseProfile(mode=ResponseMode.CONFIRMATION, max_sentences=1)
+                    respond(response_text, context, profile)
+                    status = AssistantStatus.IDLE
+                    continue
                 
                 # 1.55. Context Reference Resolution
                 context.diagnostics.start_timer("Context_Resolution")
@@ -214,14 +254,16 @@ def main():
                             continue
                     
                     # 3. Execute
-                    results = execute(plan, context)
+                    context.diagnostics.start_timer("Execution")
+                    workflow_id = workflow_service.execute(plan)
+                    context.diagnostics.stop_timer("Execution")
                     
                     # 3.5. Update Context with execution entities
                     context_service.track_execution_plan(plan)
                     
                     # 4. Respond
                     status = AssistantStatus.COMPLETED
-                    response_text = response_service.formulate_execution_response(results)
+                    response_text = response_service.formulate_response("Execution completed successfully.", ResponseMode.AUTOMATION)
                     profile = ResponseProfile(mode=ResponseMode.AUTOMATION, max_sentences=1, verbosity="short")
                     respond(response_text, context, profile)
                     
