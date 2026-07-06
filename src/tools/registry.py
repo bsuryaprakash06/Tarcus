@@ -27,17 +27,17 @@ class ToolRegistry:
     def _discover_and_register_tools(self) -> None:
         """
         Dynamically discovers and registers all BaseTool subclasses
-        defined in modules within the src.tools package.
+        defined in modules within the src.tools package and subpackages.
         """
+        import src.tools
         package_dir = str(Path(__file__).parent)
         
-        for _, module_name, _ in pkgutil.iter_modules([package_dir]):
-            if module_name in ("base_tool", "registry", "__init__"):
+        for _, module_name, is_pkg in pkgutil.walk_packages([package_dir], prefix="src.tools."):
+            if module_name.endswith("base_tool") or module_name.endswith("registry") or module_name.endswith("__init__"):
                 continue
                 
             try:
-                full_module_name = f"src.tools.{module_name}"
-                module = importlib.import_module(full_module_name)
+                module = importlib.import_module(module_name)
                 
                 for name, obj in inspect.getmembers(module, inspect.isclass):
                     if issubclass(obj, BaseTool) and obj is not BaseTool:
