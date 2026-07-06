@@ -3,7 +3,8 @@ import sys
 import time
 import uuid
 from datetime import datetime
-from src.models.plan import ExecutionPlan, ExecutionContext, ToolResult
+from typing import Union
+from src.models.plan import ExecutionPlan, ExecutionContext, ToolResult, PlanItem
 from src.models.workflow import WorkflowStep
 from src.tools.registry import ToolRegistry
 from src.utils.logger import get_logger, log_structured_tool_result, dump_debug_json
@@ -61,7 +62,7 @@ class ExecutorService:
             execution_id=execution_id
         )
 
-    def execute_step(self, step: WorkflowStep, context: ExecutionContext) -> ToolResult:
+    def execute_step(self, step: Union[WorkflowStep, PlanItem], context: ExecutionContext) -> ToolResult:
         """
         Executes a single workflow step using the tool registry.
         
