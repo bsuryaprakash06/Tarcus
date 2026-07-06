@@ -16,6 +16,7 @@ from src.services.intent_router_service import IntentRouterService
 from src.services.llm_chat_service import LLMChatService
 from src.services.conversation_service import ConversationService
 from src.services.fallback_service import FallbackService
+from src.services.context_service import ContextService
 from src.safety.validator import SafetyValidator, SafetyError
 from src.models.transcription import TranscriptionResult
 from src.models.plan import ExecutionPlan, ToolResult
@@ -44,6 +45,7 @@ intent_router_service = IntentRouterService()
 llm_chat_service = LLMChatService()
 conversation_service = ConversationService()
 fallback_service = FallbackService()
+context_service = ContextService()
 response_formatter_service = ResponseFormatterService()
 safety_validator = SafetyValidator()
 
@@ -152,8 +154,38 @@ def main():
                     for change in norm_result.changes:
                         logger.debug(f"Rule: {change.original} -> {change.normalized} ({change.category.value})")
                 
-                # 1.6. Route Intent
-                router_result = intent_router_service.route_request(norm_result.normalized_text)
+                # Check for explicit manual context reset commands
+                lower_text = norm_result.normalized_text.lower()
+                if lower_text in ("start over", "clear context", "forget this conversation", "reset conversation"):
+                    context_service.clear_session()
+                    console.print("[bold green]🧹 Session context has been cleared.[/bold green]")
+                    response_text = response_service.formulate_response("I've cleared the session context.", ResponseMode.CONFIRMATION)
+                    profile = ResponseProfile(mode=ResponseMode.CONFIRMATION, max_sentences=1)
+                    respond(response_text, context, profile)
+                    status = AssistantStatus.IDLE
+                    continue
+                
+                # 1.55. Context Reference Resolution
+                context.diagnostics.start_timer("Context_Resolution")
+                resolved_text, conf = context_service.resolve_reference(norm_result.normalized_text)
+                context.diagnostics.stop_timer("Context_Resolution")
+                
+                if conf < 0.60:
+                    console.print("[bold yellow]⚠️ Ambiguous Reference Detected.[/bold yellow]")
+                    response_text = response_service.formulate_response("I'm not exactly sure what you're referring to. Could you be more specific?", ResponseMode.WARNING)
+                    profile = ResponseProfile(mode=ResponseMode.WARNING, max_sentences=1)
+                    respond(response_text, context, profile)
+                    status = AssistantStatus.IDLE
+                    continue
+                    
+                if resolved_text != norm_result.normalized_text:
+                    logger.debug("Context Reference Resolved")
+                    logger.debug(f"Original: {norm_result.normalized_text}")
+                    logger.debug(f"Resolved: {resolved_text} (Conf: {conf})")
+                    console.print(f"[bold cyan]🔍 Resolved to:[/bold cyan] {resolved_text}")
+                
+                # 1.6. Route Intent (using the fully resolved text)
+                router_result = intent_router_service.route_request(resolved_text)
                 
                 logger.debug("Intent Routing")
                 logger.debug(f"Intent: {router_result.intent.value} | Confidence: {router_result.confidence} | Destination: {router_result.destination}")
@@ -184,6 +216,9 @@ def main():
                     # 3. Execute
                     results = execute(plan, context)
                     
+                    # 3.5. Update Context with execution entities
+                    context_service.track_execution_plan(plan)
+                    
                     # 4. Respond
                     status = AssistantStatus.COMPLETED
                     response_text = response_service.formulate_execution_response(results)
@@ -192,6 +227,8 @@ def main():
                     
                 elif router_result.destination == "LLMChatService":
                     # --- KNOWLEDGE PATH ---
+                    # Update knowledge context topic
+                    context_service.track_knowledge_query(router_result.normalized_text)
                     profile = ResponseProfile(
                         mode=ResponseMode.KNOWLEDGE, 
                         max_sentences=3, 

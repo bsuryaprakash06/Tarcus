@@ -76,6 +76,10 @@ INTENT_LOW_CONFIDENCE = float(os.environ.get("INTENT_LOW_CONFIDENCE", "0.60"))
 ENABLE_SPEECH_OPTIMIZATION = os.environ.get("ENABLE_SPEECH_OPTIMIZATION", "True").lower() == "true"
 DEFAULT_RESPONSE_STYLE = os.environ.get("DEFAULT_RESPONSE_STYLE", "friendly")
 
+# Context Manager Settings
+ENABLE_CONTEXT_MANAGER = os.environ.get("ENABLE_CONTEXT_MANAGER", "True").lower() == "true"
+CONTEXT_TIMEOUT_MINUTES = int(os.environ.get("CONTEXT_TIMEOUT_MINUTES", "10"))
+
 # Automatic Fallback: If Groq is primary but no valid API key is present, fallback to local Ollama (Llama)
 if LLM_PROVIDER == "groq":
     _active_key = GROQ_API_KEY or API_KEY

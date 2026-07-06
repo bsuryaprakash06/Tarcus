@@ -23,6 +23,7 @@ class MetricsService:
         self.successful_executions = 0
         self.failed_executions = 0
         self.total_transcriptions = 0
+        self.normalized_transcriptions = 0
         self.corrected_terms = {}
         self.intent_counts = {}
         self.classifier_latencies = []
@@ -31,6 +32,10 @@ class MetricsService:
         self.formatter_latencies = []
         self.shortened_responses = 0
         self.total_responses = 0
+        
+        self.context_hits = 0
+        self.context_misses = 0
+        self.resolver_latencies = []
         
     def record_planner_latency(self, latency: float) -> None:
         if ENABLE_METRICS:
@@ -79,6 +84,17 @@ class MetricsService:
         if final_length < original_length:
             self.shortened_responses += 1
 
+    def record_context_resolution(self, resolved: bool, latency: float) -> None:
+        if not ENABLE_METRICS:
+            return
+            
+        if resolved:
+            self.context_hits += 1
+        else:
+            self.context_misses += 1
+            
+        self.resolver_latencies.append(latency)
+
     def _compute_stats(self, data: list) -> dict:
         """Helper to compute statistics for a given raw array."""
         if not data:
@@ -111,6 +127,11 @@ class MetricsService:
             "",
             "Metrics Summary",
             "-" * 20,
+            "Context Manager:",
+            f"  Avg Latency: {self._compute_stats(self.resolver_latencies)['average']:.2f} s",
+            f"  Hits:        {self.context_hits}",
+            f"  Misses:      {self.context_misses}",
+            "",
             "Response Formatter:",
             f"  Avg Latency: {self._compute_stats(self.formatter_latencies)['average']:.2f} s",
             f"  Avg Duration:{self._compute_stats(self.speech_durations)['average']:.2f} s",
