@@ -68,6 +68,20 @@ class OpenApplicationTool(BaseTool):
         try:
             # We use subprocess.Popen with shell=True under Windows to support detaching launched GUI apps
             subprocess.Popen(f"start {app_name}", shell=True)
+            
+            # Update the Context Session
+            if context and getattr(context, "automation", None):
+                context.automation.session.active_window = app_name
+                
+            # Wait for it to become visible
+            from src.automation.windows_driver import WindowsDriver
+            from src.automation.wait_manager import WaitManager
+            from src.automation.window_manager import WindowManager
+            
+            driver = WindowsDriver()
+            WaitManager.wait_for_window(driver, app_name, timeout=5.0)
+            WindowManager.activate_window(app_name)
+            
             duration = time.time() - start_time
             return ToolResult(
                 tool_name=self.name,

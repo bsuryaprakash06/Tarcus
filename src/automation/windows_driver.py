@@ -18,9 +18,9 @@ class WindowsDriver(AutomationDriver):
         return "windows"
 
     def find_window(self, name: str, class_name: str = None) -> Optional[UIElementHandle]:
-        kwargs = {}
+        kwargs = {"searchDepth": 1}
         if name:
-            kwargs["Name"] = name
+            kwargs["RegexName"] = f"(?i).*{name}.*"
         if class_name:
             kwargs["ClassName"] = class_name
             

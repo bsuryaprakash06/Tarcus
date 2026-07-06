@@ -1,0 +1,38 @@
+{
+  "workflow_id": "ccc93a00-031e-46af-9512-33903ffeb64c",
+  "parent_workflow_id": null,
+  "execution_id": "052f95f0-e318-40b1-b8cd-883b872b3c09",
+  "status": "COMPLETED",
+  "steps": [
+    {
+      "step_id": "dcc7ac0f-54dc-4458-8544-2629c73bded9",
+      "tool": "open_application",
+      "arguments": {
+        "application": "notepad"
+      },
+      "status": "SUCCESS",
+      "retry_count": 0,
+      "result": {
+        "tool_name": "open_application",
+        "success": true,
+        "user_message": "Opening notepad.",
+        "developer_message": "I have opened notepad.",
+        "error_code": "NONE",
+        "duration": 0.00933527946472168,
+        "data": {
+          "application": "notepad"
+        }
+      },
+      "depends_on": [],
+      "preconditions": [],
+      "timeout": 30,
+      "failure_policy": "SKIP_DEPENDENTS",
+      "rollback_step": null,
+      "metadata": {}
+    }
+  ],
+  "current_step_index": 0,
+  "total_steps": 0,
+  "created_at": 1783375186.779908,
+  "updated_at": 1783375186.779911
+}
