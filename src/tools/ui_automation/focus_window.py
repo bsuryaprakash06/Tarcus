@@ -17,7 +17,10 @@ class FocusWindowTool(BaseTool):
     @property
     def arguments_schema(self) -> dict:
         return {
-            "window": "Name of the window to focus (e.g. 'Notepad')"
+            "window": {
+                "type": "string",
+                "description": "Name of the window to focus (e.g. 'Notepad')"
+            }
         }
         
     @property

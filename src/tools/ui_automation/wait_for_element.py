@@ -17,7 +17,10 @@ class WaitForElementTool(BaseTool):
     @property
     def arguments_schema(self) -> dict:
         return {
-            "element_name": "Name of the element to wait for."
+            "element_name": {
+                "type": "string",
+                "description": "Name of the element to wait for."
+            }
         }
         
     @property

@@ -17,9 +17,20 @@ class ClickElementTool(BaseTool):
     @property
     def arguments_schema(self) -> dict:
         return {
-            "element_name": "The name or text of the element to click.",
-            "double_click": "Boolean indicating if it should be a double click (default false).",
-            "right_click": "Boolean indicating if it should be a right click (default false)."
+            "element_name": {
+                "type": "string",
+                "description": "The name or text of the element to click."
+            },
+            "double_click": {
+                "type": "boolean",
+                "optional": True,
+                "description": "Boolean indicating if it should be a double click (default false)."
+            },
+            "right_click": {
+                "type": "boolean",
+                "optional": True,
+                "description": "Boolean indicating if it should be a right click (default false)."
+            }
         }
         
     @property

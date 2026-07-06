@@ -17,9 +17,20 @@ class TypeTextTool(BaseTool):
     @property
     def arguments_schema(self) -> dict:
         return {
-            "text": "The text to type.",
-            "element_name": "Optional. The name of the element to type into.",
-            "clear_first": "Boolean indicating whether to clear the field first (default false)."
+            "text": {
+                "type": "string",
+                "description": "The text to type."
+            },
+            "element_name": {
+                "type": "string",
+                "optional": True,
+                "description": "Optional. The name of the element to type into."
+            },
+            "clear_first": {
+                "type": "boolean",
+                "optional": True,
+                "description": "Boolean indicating whether to clear the field first (default false)."
+            }
         }
         
     @property

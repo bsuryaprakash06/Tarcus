@@ -16,7 +16,10 @@ class ReadTextTool(BaseTool):
     @property
     def arguments_schema(self) -> dict:
         return {
-            "element_name": "The name of the element to read from."
+            "element_name": {
+                "type": "string",
+                "description": "The name of the element to read from."
+            }
         }
         
     @property

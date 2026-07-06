@@ -17,7 +17,10 @@ class WaitForWindowTool(BaseTool):
     @property
     def arguments_schema(self) -> dict:
         return {
-            "window": "Name of the window to wait for."
+            "window": {
+                "type": "string",
+                "description": "Name of the window to wait for."
+            }
         }
         
     @property

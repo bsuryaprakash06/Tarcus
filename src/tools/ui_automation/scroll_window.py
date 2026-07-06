@@ -17,8 +17,16 @@ class ScrollWindowTool(BaseTool):
     @property
     def arguments_schema(self) -> dict:
         return {
-            "direction": "Direction to scroll ('up' or 'down').",
-            "amount": "Number of scroll ticks (default 1)."
+            "direction": {
+                "type": "string",
+                "optional": True,
+                "description": "Direction to scroll ('up' or 'down')."
+            },
+            "amount": {
+                "type": "integer",
+                "optional": True,
+                "description": "Number of scroll ticks (default 1)."
+            }
         }
         
     @property
