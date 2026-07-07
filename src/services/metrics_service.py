@@ -37,9 +37,32 @@ class MetricsService:
         self.context_misses = 0
         self.resolver_latencies = []
         
+        self.workflow_builder_latencies = []
+        self.execution_planner_latencies = []
+        self.verification_latencies = []
+        self.verification_failures = 0
+        self.recovery_attempts = 0
     def record_planner_latency(self, latency: float) -> None:
         if ENABLE_METRICS:
             self.planner_latencies.append(latency)
+            
+    def record_workflow_builder_latency(self, latency: float) -> None:
+        if ENABLE_METRICS:
+            self.workflow_builder_latencies.append(latency)
+            
+    def record_execution_planner_latency(self, latency: float) -> None:
+        if ENABLE_METRICS:
+            self.execution_planner_latencies.append(latency)
+            
+    def record_verification(self, latency: float, success: bool) -> None:
+        if ENABLE_METRICS:
+            self.verification_latencies.append(latency)
+            if not success:
+                self.verification_failures += 1
+                
+    def record_recovery_attempt(self) -> None:
+        if ENABLE_METRICS:
+            self.recovery_attempts += 1
             
     def record_execution_latency(self, latency: float) -> None:
         if ENABLE_METRICS:
@@ -149,6 +172,13 @@ class MetricsService:
             "Execution:",
             f"  Average: {exec_stats['average']:.2f} s",
             f"  Median:  {exec_stats['median']:.2f} s",
+            "",
+            "Workflow Engine (M6.3):",
+            f"  Builder Latency: {self._compute_stats(self.workflow_builder_latencies)['average']:.2f} s",
+            f"  Planner Latency: {self._compute_stats(self.execution_planner_latencies)['average']:.2f} s",
+            f"  Verification Latency: {self._compute_stats(self.verification_latencies)['average']:.2f} s",
+            f"  Verification Failures: {self.verification_failures}",
+            f"  Recovery Attempts: {self.recovery_attempts}",
             "",
             "Overall:",
             f"  Success Rate: {success_rate:.1f}%",

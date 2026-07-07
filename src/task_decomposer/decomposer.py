@@ -27,6 +27,7 @@ class TaskDecomposer:
             # We use the underlying provider to avoid the Planner's specific Validation schemas
             response = self.provider.generate(system_prompt, f"User Request: {text}", require_json=True)
             raw_response = response.text
+            logger.info(f"RAW DECOMPOSER RESPONSE:\n{raw_response}")
             
             # Clean markdown if present
             raw_response = raw_response.strip()

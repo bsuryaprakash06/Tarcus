@@ -1,38 +1,22 @@
 from typing import Optional
-from rapidfuzz import fuzz
-from src.automation.target_registry import TargetRegistry
-from src.models.target import Target
-from src.utils.logger import get_logger
-
-logger = get_logger("automation.target_resolver")
+from src.models.target import InteractionTarget
+from src.automation.interaction_manager import InteractionManager
 
 class TargetResolver:
     """
-    Resolves natural language references to a specific Target in the Registry.
+    Resolves higher-level target queries into specific, interactive targets 
+    by walking the InteractionGraph.
     """
     def __init__(self):
-        self.registry = TargetRegistry()
+        self.manager = InteractionManager()
         
-    def resolve(self, reference: str, min_score: float = 60.0) -> Optional[Target]:
+    def resolve_primary_edit(self, base_target_id: str) -> Optional[InteractionTarget]:
         """
-        Finds the best matching Target based on name using RapidFuzz.
+        Finds the primary editable child control within a given base target.
         """
-        targets = self.registry.list_targets(active_only=True)
-        if not targets:
-            return None
+        def is_editable(node: InteractionTarget) -> bool:
+            # In reality, this would query the CapabilityProvider or check TargetSession capabilities.
+            # For now, we use a simple heuristic based on the ID or name for demonstration.
+            return "edit" in node.friendly_name.lower() or "document" in node.friendly_name.lower() or node.id.startswith("target_control")
             
-        best_match = None
-        best_score = 0.0
-        
-        for t in targets:
-            score = fuzz.partial_ratio(reference.lower(), t.name.lower())
-            if score > best_score:
-                best_score = score
-                best_match = t
-                
-        if best_match and best_score >= min_score:
-            logger.info(f"Resolved '{reference}' -> {best_match.id} ({best_match.name}) with score {best_score}")
-            return best_match
-            
-        logger.warning(f"Failed to resolve target for '{reference}'. Best score: {best_score}")
-        return None
+        return self.manager._graph.find_node_by_predicate(is_editable, start_node_id=base_target_id)

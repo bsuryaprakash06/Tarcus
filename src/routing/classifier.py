@@ -10,10 +10,10 @@ logger = get_logger("intent_classifier")
 CLASSIFIER_PROMPT = """You are the central Intent Classification engine for a voice assistant.
 Your sole responsibility is to classify the user's spoken command into EXACTLY ONE of the following intents:
 
-AUTOMATION - Interacting with the computer, system commands, opening apps, typing, clicking, executing local tools. Note: "Type [something]" is purely AUTOMATION, even if the text to type is conversational.
+AUTOMATION - Interacting with the computer, system commands, opening apps, typing, clicking, executing local tools. CRITICAL: Any command containing "type", "write", or "enter" (e.g., "Type Hello Shane") is purely AUTOMATION!
 LLM_CHAT - General knowledge questions, answering facts, explanations, asking for code, writing emails, summarizing.
-CONVERSATION - Simple conversational greetings or pleasantries (e.g. "Hello", "Hi", "Good morning", "Thanks", "Bye"). Note: Do NOT classify "Type hello" as conversation.
-MIXED - Requests that ask the LLM to BOTH perform an action AND explain/chat about something (e.g. "Open notepad and explain what RAM is"). If the user is just asking you to type conversational text, it is NOT MIXED.
+CONVERSATION - Simple conversational greetings or pleasantries (e.g. "Hello", "Hi", "Good morning", "Thanks", "Bye"). NEVER classify a command to "type" something as CONVERSATION.
+MIXED - Requests that ask the LLM to BOTH perform an action AND explain/chat about something.
 UNKNOWN - Unintelligible or completely unsupported requests.
 
 You must respond ONLY with a raw JSON object matching this schema:

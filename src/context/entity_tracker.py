@@ -23,6 +23,10 @@ class EntityTracker:
     def _on_step_completed(self, payload: Dict[str, Any]):
         """Extract automation entities purely from the validated execution ToolResult."""
         result_dict = payload.get("result", {})
+        if not isinstance(result_dict, dict):
+            return
+            
+        entities = result_dict.get("entities", [])
         tool_name = result_dict.get("tool_name", "")
         data = result_dict.get("data", {})
         

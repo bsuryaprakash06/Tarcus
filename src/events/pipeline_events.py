@@ -57,3 +57,21 @@ class PipelineEventBus:
                     callback(payload)
                 except Exception as e:
                     logger.error(f"Error in event subscriber for {event_type.value}: {e}")
+                    
+    def publish_event(self, event: Any) -> None:
+        """Publishes a strongly typed Pydantic event object."""
+        event_name = event.__class__.__name__
+        logger.debug(f"Typed Event Emitted: {event_name} | Payload: {event.model_dump()}")
+        if event_name in self._subscribers:
+            for callback in self._subscribers[event_name]:
+                try:
+                    callback(event)
+                except Exception as e:
+                    logger.error(f"Error in typed event subscriber for {event_name}: {e}")
+                    
+    def subscribe_event(self, event_type: type, callback: Callable[[Any], None]) -> None:
+        """Subscribes to a strongly typed Pydantic event object."""
+        event_name = event_type.__name__
+        if event_name not in self._subscribers:
+            self._subscribers[event_name] = []
+        self._subscribers[event_name].append(callback)

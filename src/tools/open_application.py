@@ -1,13 +1,12 @@
 import subprocess
 import time
-from src.tools.base_tool import BaseTool, SafetyLevel
+from src.tools.base_tool import BaseTool
 from src.models.plan import ToolResult, ExecutionContext
 from src.models.error_codes import ErrorCode
 from src.utils.logger import get_logger
+from src.utils.settings import DRY_RUN
 
 logger = get_logger("tool.open_application")
-
-from src.utils.settings import DRY_RUN
 
 class OpenApplicationTool(BaseTool):
     @property
@@ -44,51 +43,37 @@ class OpenApplicationTool(BaseTool):
         start_time = time.time()
         app_name = arguments.get("application", "").strip()
         if not app_name:
-            duration = time.time() - start_time
-            return ToolResult(tool_name=self.name, success=False, user_message="I need to know which application to open.", developer_message="Application name argument is missing or empty.", error_code=ErrorCode.VALIDATION_ERROR, duration=duration)
+            return ToolResult(tool_name=self.name, success=False, user_message="I need to know which application to open.", developer_message="Missing argument.", error_code=ErrorCode.VALIDATION_ERROR, duration=time.time() - start_time)
             
         logger.info(f"Executing open_application for: '{app_name}'")
         
-        # Security sanitization check: app_name should be only alphanumeric
         if not app_name.isalnum():
-            duration = time.time() - start_time
-            return ToolResult(tool_name=self.name, success=False, user_message="That doesn't look like a valid application name.", developer_message=f"Invalid application name format: '{app_name}'", error_code=ErrorCode.VALIDATION_ERROR, duration=duration)
+            return ToolResult(tool_name=self.name, success=False, user_message="Invalid name.", developer_message=f"Invalid format: '{app_name}'", error_code=ErrorCode.VALIDATION_ERROR, duration=time.time() - start_time)
 
         if DRY_RUN:
-            logger.info(f"[DRY RUN] Would open application: {app_name}")
-            return ToolResult(
-                tool_name=self.name,
-                success=True,
-                user_message=f"Simulating opening {app_name}.",
-                developer_message=f"Would open {app_name}.",
-                duration=time.time() - start_time,
-                data={"application": app_name, "dry_run": True}
-            )
+            return ToolResult(tool_name=self.name, success=True, user_message=f"Simulating opening {app_name}.", developer_message="Dry run successful", duration=time.time() - start_time)
 
         try:
-            # We use subprocess.Popen with shell=True under Windows to support detaching launched GUI apps
+            # Launch
             subprocess.Popen(f"start {app_name}", shell=True)
             
-            # Update the Context Session
-            if context and getattr(context, "automation", None):
-                context.automation.session.active_window = app_name
-                
-            # Wait for it to become visible
+            # Wait a tiny bit for the process to register its main window
+            time.sleep(1.0)
+            
+            # Trigger Platform Discovery & Registration
             from src.automation.windows_driver import WindowsDriver
-            from src.automation.wait_manager import WaitManager
-            from src.automation.window_manager import WindowManager
+            from src.automation.interaction_manager import InteractionManager
             
             driver = WindowsDriver()
-            WaitManager.wait_for_window(driver, app_name, timeout=5.0)
-            WindowManager.activate_window(app_name)
+            manager = InteractionManager()
+            manager.discover_and_sync(driver) # Populates Registry and Sessions
             
-            duration = time.time() - start_time
             return ToolResult(
                 tool_name=self.name,
                 success=True,
                 user_message=f"Opening {app_name}.",
                 developer_message=f"I have opened {app_name}.",
-                duration=duration,
+                duration=time.time() - start_time,
                 data={"application": app_name}
             )
         except Exception as e:

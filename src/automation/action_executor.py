@@ -1,4 +1,4 @@
-from src.automation.driver import AutomationDriver
+from src.automation.driver import AutomationBackend
 from src.models.ui_element import UIElementHandle, AutomationResult
 from src.utils.logger import get_logger
 import time
@@ -8,7 +8,7 @@ logger = get_logger("automation.executor")
 class ActionExecutor:
     """Strictly executes actions on resolved handles. No searching permitted."""
     
-    def __init__(self, driver: AutomationDriver):
+    def __init__(self, driver: AutomationBackend):
         self.driver = driver
         
     def click(self, handle: UIElementHandle, double: bool = False, right: bool = False) -> AutomationResult:

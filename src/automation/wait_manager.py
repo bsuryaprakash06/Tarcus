@@ -29,7 +29,8 @@ class WaitManager:
         
     @staticmethod
     def wait_for_window(driver: Any, name: str, timeout: float = 10.0) -> bool:
+        from src.automation.window_manager import WindowManager
         def condition():
-            win = driver.find_window(name)
-            return win is not None
+            windows = WindowManager.list_open_windows()
+            return any(name.lower() in w.lower() for w in windows)
         return WaitManager.wait_until(condition, timeout=timeout)

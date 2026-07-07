@@ -23,6 +23,12 @@ JSON Output Schema:
       "arguments": {{
         "<arg_name>": "<value>"
       }}
+    }},
+    {{
+      "tool": "<another_tool_name>",
+      "arguments": {{
+        "<arg_name>": "<value>"
+      }}
     }}
   ]
 }}

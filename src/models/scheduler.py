@@ -63,6 +63,10 @@ class TaskGraph(BaseModel):
     def add_node(self, node: ExecutionNode):
         self.nodes[node.id] = node
         
+    def add_dependency(self, node_id: str, depends_on_id: str):
+        if node_id in self.nodes:
+            self.nodes[node_id].dependencies.append(depends_on_id)
+        
     def get_ready_nodes(self) -> List[ExecutionNode]:
         ready = []
         for node in self.nodes.values():

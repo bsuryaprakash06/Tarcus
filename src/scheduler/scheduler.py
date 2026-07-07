@@ -8,6 +8,7 @@ from src.scheduler.task_dispatcher import TaskDispatcher
 from src.scheduler.worker_pool import WorkerPool
 from src.scheduler.handlers.automation_handler import AutomationHandler
 from src.scheduler.handlers.knowledge_handler import KnowledgeHandler
+from src.scheduler.handlers.workflow_handler import WorkflowHandler
 
 logger = get_logger("scheduler.orchestrator")
 
@@ -31,6 +32,7 @@ class Scheduler:
         # Dynamically register handlers (extensible for Browser/Vision later)
         self.dispatcher.register_handler("AutomationHandler", AutomationHandler())
         self.dispatcher.register_handler("KnowledgeHandler", KnowledgeHandler())
+        self.dispatcher.register_handler("WorkflowHandler", WorkflowHandler())
         
     def execute(self, graph: TaskGraph) -> ExecutionSummary:
         """

@@ -43,6 +43,7 @@ class Planner:
                 response = self.provider.generate(system_prompt, current_user_prompt, require_json=True)
                 
                 # Perform 3-stage validation (syntax, schema, semantics)
+                logger.info(f"RAW LLM RESPONSE:\n{response.text}")
                 execution_plan = parse_execution_plan(response.text, self.registry)
                 
                 # Detailed architectural performance logging

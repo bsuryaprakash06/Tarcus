@@ -24,8 +24,11 @@ from src.utils.settings import DEFAULT_RESPONSE_STYLE
 
 # New Scheduler Services
 from src.task_decomposer.decomposer import TaskDecomposer
-from src.scheduler.execution_planner import ExecutionPlanner
+from src.execution.workflow_builder import WorkflowBuilder
+from src.execution.execution_planner import ExecutionPlanner
 from src.scheduler.scheduler import Scheduler
+from src.scheduler.response_aggregator import ResponseAggregator
+from src.models.scheduler import TaskGraph, ExecutionNode
 from src.scheduler.response_aggregator import ResponseAggregator
 
 logger = get_logger("pipeline.worker")
@@ -42,6 +45,7 @@ class PipelineWorker(threading.Thread):
         self.dialogue_manager = DialogueManager()
         
         self.task_decomposer = TaskDecomposer()
+        self.workflow_builder = WorkflowBuilder()
         self.execution_planner = ExecutionPlanner()
         self.scheduler_engine = Scheduler()
         self.response_aggregator = ResponseAggregator()
@@ -167,6 +171,7 @@ class PipelineWorker(threading.Thread):
         
         for task in atomic_tasks:
             router_result = self.router_service.route_request(task.text)
+            logger.info(f"ROUTED TASK '{task.text}' to DESTINATION: {router_result.destination} (INTENT: {router_result.intent.value})")
             self.event_bus.publish(PipelineEventType.INTENT_CLASSIFIED, {"intent": router_result.intent.value, "destination": router_result.destination})
             
             # Context Resolution happens AFTER Intent Classification
@@ -211,8 +216,32 @@ class PipelineWorker(threading.Thread):
                     response_text = self.fallback_service.handle_unknown()
                 fallback_responses.append(response_text)
                 
-        # 3. Execution Planning (Deterministic DAG Building)
-        graph = self.execution_planner.build_graph(automation_plans, knowledge_requests)
+        # 3. Workflow Assembly & Execution Planning
+        graph = TaskGraph()
+        
+        prev_node_id = None
+        for plan in automation_plans:
+            logical_workflow = self.workflow_builder.build_workflow(request.text, plan)
+            executable_workflow = self.execution_planner.plan_execution(logical_workflow)
+            
+            node = ExecutionNode(
+                id=executable_workflow.workflow_id,
+                handler_type="WorkflowHandler",
+                payload=executable_workflow
+            )
+            graph.add_node(node)
+            if prev_node_id:
+                graph.add_dependency(node.id, prev_node_id)
+            prev_node_id = node.id
+            
+        for kr in knowledge_requests:
+            import uuid
+            node = ExecutionNode(
+                id=str(uuid.uuid4()),
+                handler_type="KnowledgeHandler",
+                payload=kr
+            )
+            graph.add_node(node)
         
         # 4. Concurrent Scheduling (Execution)
         summary = self.scheduler_engine.execute(graph)
