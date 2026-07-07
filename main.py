@@ -23,6 +23,13 @@ def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion") # Native-looking cross-platform style
     
+    # Initialize Overlay Engine
+    from src.utils.settings import ENABLE_OVERLAY_ENGINE
+    if ENABLE_OVERLAY_ENGINE:
+        from src.overlay.overlay_manager import OverlayManager
+        app.overlay_manager = OverlayManager(parent=app)
+        logger.info("Overlay Engine active.")
+    
     # Instantiate the main desktop view
     window = MainWindow()
     window.show()

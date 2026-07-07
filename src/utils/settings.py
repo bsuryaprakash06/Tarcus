@@ -113,6 +113,18 @@ MAX_CONCURRENT_LLM_REQUESTS = int(os.environ.get("MAX_CONCURRENT_LLM_REQUESTS", 
 TASK_TIMEOUT_SECONDS = float(os.environ.get("TASK_TIMEOUT_SECONDS", "60.0"))
 ENABLE_STREAMING_RESPONSES = os.environ.get("ENABLE_STREAMING_RESPONSES", "True").lower() == "true"
 
+# Overlay Engine Settings
+ENABLE_OVERLAY_ENGINE = os.environ.get("ENABLE_OVERLAY_ENGINE", "True").lower() == "true"
+ENABLE_BORDER_GLOW = os.environ.get("ENABLE_BORDER_GLOW", "True").lower() == "true"
+ENABLE_BADGES = os.environ.get("ENABLE_BADGES", "True").lower() == "true"
+ENABLE_ACTION_INDICATORS = os.environ.get("ENABLE_ACTION_INDICATORS", "True").lower() == "true"
+OVERLAY_REFRESH_RATE = int(os.environ.get("OVERLAY_REFRESH_RATE", "30"))
+DEFAULT_BORDER_WIDTH = int(os.environ.get("DEFAULT_BORDER_WIDTH", "2"))
+DEFAULT_BORDER_RADIUS = int(os.environ.get("DEFAULT_BORDER_RADIUS", "8"))
+DEFAULT_GLOW_RADIUS = int(os.environ.get("DEFAULT_GLOW_RADIUS", "12"))
+ENABLE_OVERLAY_ANIMATIONS = os.environ.get("ENABLE_OVERLAY_ANIMATIONS", "True").lower() == "true"
+ENABLE_OVERLAY_DEBUG = os.environ.get("ENABLE_OVERLAY_DEBUG", "False").lower() == "true"
+
 # Ensure runtime directories exist
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
 SOUNDS_DIR.mkdir(parents=True, exist_ok=True)

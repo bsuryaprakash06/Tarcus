@@ -54,3 +54,16 @@ class AutomationBackend(ABC):
     def verify(self, session: TargetSession, condition: Dict[str, Any]) -> bool:
         """Verifies a specific condition natively via the backend."""
         pass
+        
+    @abstractmethod
+    def get_bounds(self, target_id: str) -> Optional[tuple[int, int, int, int]]:
+        """Returns the current screen bounding box (x, y, width, height) of the target."""
+        pass
+        
+    @abstractmethod
+    def subscribe_to_window_events(self, callback) -> bool:
+        """
+        Subscribes to native window OS events (move, resize, visibility) if supported by the backend.
+        Returns True if hooks were successfully registered, False otherwise.
+        """
+        pass
