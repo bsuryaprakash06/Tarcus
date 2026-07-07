@@ -34,3 +34,15 @@ assets/sounds/*.mp3
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Logs and Assets
+@AutomationLog.txt
+logs/
+assets/screenshots/
+
+# User Data
+data/workflows/
+config/user_dictionary.json
+
+# Scratch Files
+scratch/
