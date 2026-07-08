@@ -6,9 +6,24 @@ from src.models.error_codes import ErrorCode
 from src.utils.logger import get_logger
 from src.utils.settings import DRY_RUN
 
+from src.models.verification import ToolMetadata, RecoveryPolicy, RecoveryStrategy
+
 logger = get_logger("tool.open_application")
 
 class OpenApplicationTool(BaseTool):
+    @property
+    def metadata(self) -> ToolMetadata:
+        return ToolMetadata(
+            tool_name=self.name,
+            verification_rules=["window_exists"], # In future: ["process_running", "window_exists"]
+            recovery_policy=RecoveryPolicy(
+                strategies=[
+                    RecoveryStrategy.RETRY
+                ]
+            ),
+            timeout_sec=15.0
+        )
+        
     @property
     def name(self) -> str:
         return "open_application"

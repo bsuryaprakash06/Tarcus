@@ -43,6 +43,7 @@ class ExecutionController:
             ui_tools = {"type_text": "typing", "click_element": "clicking", "scroll_element": "scrolling"}
             success = False
             
+            # Execute Step
             if step.tool in ui_tools:
                 from src.execution.interaction_coordinator import InteractionCoordinator
                 from src.automation.windows_driver import WindowsDriver
@@ -59,23 +60,64 @@ class ExecutionController:
                 success = coordinator.coordinate_interaction(intent, base_target_id, **step.arguments)
             else:
                 success = self.action_executor.execute_step(step, self.workflow.workflow_id, context)
+                
+            # Verification Phase
+            tool_instance = self.action_executor.executor_service.get_tool(step.tool)
+            if tool_instance and hasattr(tool_instance, "metadata"):
+                from src.verification.verification_manager import VerificationManager
+                from src.verification.verification_provider import VerificationProvider
+                from src.models.verification import VerificationStatus
+                
+                # Mock provider for now, would be injected realistically
+                class MockProvider(VerificationProvider):
+                    @property
+                    def provider_name(self) -> str: return "MockWindows"
+                    def evaluate(self, rule_name, session, context) -> bool: return True
+                
+                v_manager = VerificationManager(MockProvider())
+                # For UI steps, we need a session. For now, pass None or basic object
+                v_result = v_manager.verify(step.step_id, tool_instance.metadata, None, None)
+                
+                if v_result.status != VerificationStatus.SUCCESS:
+                    logger.warning(f"Verification Failed. Entering RECOVERING state for step {step.step_id}")
+                    step.status = ExecutionState.RECOVERING
+                    
+                    from src.verification.recovery_engine import RecoveryEngine
+                    from src.automation.windows_driver import WindowsDriver
+                    from src.models.verification import RecoveryStatus
+                    from src.verification.retry_policy import RetryPolicyExecutor
+                    
+                    r_engine = RecoveryEngine(WindowsDriver())
+                    # Attempt recovery
+                    r_status = r_engine.attempt_recovery(step.step_id, None, tool_instance.metadata.recovery_policy)
+                    
+                    if r_status == RecoveryStatus.RECOVERED:
+                        # Retry logic via policy
+                        try:
+                            # Simplistic retry integration
+                            RetryPolicyExecutor.execute_with_retry(
+                                lambda: self.action_executor.execute_step(step, self.workflow.workflow_id, context),
+                                max_retries=tool_instance.metadata.recovery_policy.max_retries
+                            )
+                            logger.info(f"Step {step.step_id} successfully recovered and retried.")
+                            success = True
+                        except Exception as e:
+                            logger.error(f"Retry failed: {e}")
+                            success = False
+                    else:
+                        success = False
             
             new_context = self.action_executor.executor_service.get_current_context()
             self.state_tracker.capture_after_snapshot(step, new_context)
             
             if not success:
-                logger.warning(f"Verification Failed. Entering RECOVERING state for step {step.step_id}")
-                step.status = ExecutionState.RECOVERING
-                
-                # In a full implementation, we'd trigger RecoveryEngine here and retry.
-                # For now, we simulate a failed recovery leading to FAILED.
                 logger.error(f"ExecutionController aborting workflow due to step {step.step_id} failure.")
                 self.state_tracker.mark_workflow_status(ExecutionState.FAILED)
                 self.workflow.completed_at = datetime.utcnow()
                 
                 self.event_bus.publish_event(WorkflowFailed(
                     workflow_id=self.workflow.workflow_id, 
-                    error=f"Step {step.step_id} failed in RECOVERING state: {step.error_message}"
+                    error=f"Step {step.step_id} failed permanently."
                 ))
                 return False
                 

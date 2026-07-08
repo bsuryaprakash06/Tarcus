@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from src.models.plan import ToolResult, ExecutionContext
+from src.models.verification import ToolMetadata
 
 class SafetyLevel(Enum):
     SAFE = "SAFE"
@@ -10,6 +11,12 @@ class SafetyLevel(Enum):
 
 class BaseTool(ABC):
     """Abstract base class representing a tool that can be executed by the assistant."""
+    
+    @property
+    @abstractmethod
+    def metadata(self) -> ToolMetadata:
+        """Metadata governing verification and recovery policies for this tool."""
+        pass
     
     @property
     @abstractmethod

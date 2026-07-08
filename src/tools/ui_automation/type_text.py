@@ -7,9 +7,25 @@ from src.automation.windows_driver import WindowsDriver
 from src.utils.logger import get_logger
 from src.utils.settings import DRY_RUN
 
+from src.models.verification import ToolMetadata, RecoveryPolicy, RecoveryStrategy
+
 logger = get_logger("tool.type_text")
 
 class TypeTextTool(BaseTool):
+    @property
+    def metadata(self) -> ToolMetadata:
+        return ToolMetadata(
+            tool_name=self.name,
+            verification_rules=["text_equals"],
+            recovery_policy=RecoveryPolicy(
+                strategies=[
+                    RecoveryStrategy.REFOCUS,
+                    RecoveryStrategy.REDISCOVER,
+                    RecoveryStrategy.RETRY
+                ]
+            )
+        )
+        
     @property
     def name(self) -> str:
         return "type_text"
