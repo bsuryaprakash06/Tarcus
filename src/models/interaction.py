@@ -1,6 +1,27 @@
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
 from enum import Enum
+import warnings
+
+# Deprecated imports for legacy InteractionContext
+from src.models.target import InteractionTarget
+from src.models.ui_element import UIElement
+
+class InteractionContext(BaseModel):
+    """
+    DEPRECATED: Used by legacy ExecutionContext. Use InteractionSession instead.
+    """
+    current_target: Optional[InteractionTarget] = None
+    focused_element: Optional[UIElement] = None
+    selected_element: Optional[UIElement] = None
+    cursor_position: Optional[str] = None
+    selection_text: Optional[str] = None
+    backend: str = "windows"
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    
+    def __init__(self, **data):
+        super().__init__(**data)
+        warnings.warn("InteractionContext is deprecated. Use InteractionSession.", DeprecationWarning, stacklevel=2)
 
 class InteractionCapability(str, Enum):
     TEXT_INPUT = "TEXT_INPUT"

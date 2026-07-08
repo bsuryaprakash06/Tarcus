@@ -13,10 +13,10 @@ class BaseTool(ABC):
     """Abstract base class representing a tool that can be executed by the assistant."""
     
     @property
-    @abstractmethod
     def metadata(self) -> ToolMetadata:
         """Metadata governing verification and recovery policies for this tool."""
-        pass
+        # Default metadata for tools that haven't been migrated yet
+        return ToolMetadata(tool_name=self.name, verification_rules=[])
     
     @property
     @abstractmethod

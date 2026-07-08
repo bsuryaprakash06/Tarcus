@@ -1,8 +1,20 @@
 import warnings
 from typing import Any
 from src.utils.logger import get_logger
+from pydantic import BaseModel
+from src.models.target import TargetState
 
 logger = get_logger("automation.interaction_manager")
+
+class TargetRegisteredEvent(BaseModel):
+    """DEPRECATED"""
+    target_id: str
+        
+class TargetStateChangedEvent(BaseModel):
+    """DEPRECATED"""
+    target_id: str
+    old_state: TargetState
+    new_state: TargetState
 
 class InteractionManager:
     """
