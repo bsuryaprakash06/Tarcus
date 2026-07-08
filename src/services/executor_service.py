@@ -41,6 +41,9 @@ class ExecutorService:
         self.registry = tool_registry or ToolRegistry()
         self.metrics = MetricsService()
 
+    def get_tool(self, tool_name: str):
+        return self.registry.get_tool(tool_name)
+
     def get_current_context(self, session_id: str = "") -> ExecutionContext:
         """Gathers system and environment information into a lightweight ExecutionContext."""
         try:

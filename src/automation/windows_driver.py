@@ -140,3 +140,18 @@ class WindowsDriver(AutomationBackend):
             return control.Exists(0, 0)
         except Exception:
             return False
+
+    def execute(self, node_id: str, step: Any) -> bool:
+        return False
+
+    def refresh(self, node_id: str) -> Any:
+        return None, []
+
+    def destroy(self):
+        pass
+
+    def get_bounds(self, target_id: str) -> Optional[tuple[int, int, int, int]]:
+        return None
+
+    def subscribe_to_window_events(self, callback) -> bool:
+        return False
