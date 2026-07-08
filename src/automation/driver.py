@@ -1,12 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Optional, List, Dict, Any
-from src.models.target import InteractionTarget, TargetSession
-from src.models.interaction_graph import InteractionGraph
+from typing import Optional, List, Dict, Any, Tuple
+from src.models.interaction import InteractionNode, InteractionWorkflowStep
 
 class AutomationBackend(ABC):
     """
     Universal interface for all automation backends.
-    All actions operate on a TargetSession and use InteractionStrategies internally.
+    Now standardized for the Semantic Interaction Engine.
     """
     
     @property
@@ -15,46 +14,38 @@ class AutomationBackend(ABC):
         pass
 
     @abstractmethod
-    def discover(self) -> InteractionGraph:
-        """Polls the environment and returns an InteractionGraph of discovered targets."""
+    def discover(self) -> InteractionNode:
+        """Polls the environment and returns the root InteractionNode."""
         pass
         
     @abstractmethod
-    def resolve(self, session: TargetSession, query: str) -> Optional[InteractionTarget]:
-        """Resolves a child target based on a query within the session's graph."""
+    def resolve(self, query: str) -> Optional[InteractionNode]:
+        """Resolves a target node natively based on a query."""
         pass
         
     @abstractmethod
-    def focus(self, session: TargetSession) -> bool:
-        """Restores and brings the target to the absolute foreground."""
+    def execute(self, node_id: str, step: InteractionWorkflowStep) -> bool:
+        """Executes a single workflow step on the target node natively."""
         pass
 
     @abstractmethod
-    def click(self, session: TargetSession, double: bool = False, right: bool = False) -> bool:
-        pass
-        
-    @abstractmethod
-    def type(self, session: TargetSession, text: str, clear_first: bool = False) -> bool:
-        pass
-        
-    @abstractmethod
-    def read(self, session: TargetSession) -> str:
-        pass
-        
-    @abstractmethod
-    def scroll(self, session: TargetSession, direction: str, amount: int) -> bool:
-        pass
-        
-    @abstractmethod
-    def capture(self, session: TargetSession) -> str:
-        """Returns a path or base64 string of the captured visual state."""
-        pass
-        
-    @abstractmethod
-    def verify(self, session: TargetSession, condition: Dict[str, Any]) -> bool:
+    def verify(self, node_id: str, condition: Dict[str, Any]) -> bool:
         """Verifies a specific condition natively via the backend."""
         pass
         
+    @abstractmethod
+    def refresh(self, node_id: str) -> Tuple[Optional[InteractionNode], List[InteractionNode]]:
+        """
+        Refreshes a specific branch of the native UI. 
+        Returns (Updated Root Node, Flattened List of all Descendants).
+        """
+        pass
+        
+    @abstractmethod
+    def destroy(self):
+        """Cleans up native resources."""
+        pass
+
     @abstractmethod
     def get_bounds(self, target_id: str) -> Optional[tuple[int, int, int, int]]:
         """Returns the current screen bounding box (x, y, width, height) of the target."""
@@ -62,8 +53,5 @@ class AutomationBackend(ABC):
         
     @abstractmethod
     def subscribe_to_window_events(self, callback) -> bool:
-        """
-        Subscribes to native window OS events (move, resize, visibility) if supported by the backend.
-        Returns True if hooks were successfully registered, False otherwise.
-        """
+        """Subscribes to native window OS events (move, resize, visibility)."""
         pass
