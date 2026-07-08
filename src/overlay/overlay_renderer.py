@@ -21,6 +21,10 @@ class OverlayRenderer:
         painter.setRenderHint(QPainter.Antialiasing)
         
         rect = widget.rect()
+        # Inset by 20px padding (from overlay_tracker) to get actual target bounds
+        padding = 20
+        target_rect = QRectF(rect).adjusted(padding, padding, -padding, -padding)
+        
         profile = self.profile_manager.resolve_profile({})
         base_color = self.color_manager.resolve_color(self.target.interaction_target_id)
         
@@ -28,24 +32,24 @@ class OverlayRenderer:
         state_color = self._get_state_color(base_color, self.target.current_state)
         
         # 1. Background Layer (Usually transparent, unless thinking/locked)
-        self._draw_background(painter, rect, state_color)
+        self._draw_background(painter, target_rect, state_color)
         
         # 2. Glow Layer
-        self._draw_glow(painter, rect, state_color)
+        self._draw_glow(painter, target_rect, state_color)
         
         # 3. Border Layer
-        self._draw_border(painter, rect, state_color, profile)
+        self._draw_border(painter, target_rect, state_color, profile)
         
         # 4. Badge Layer
         if profile.show_badge and self.target.badge_text:
-            self._draw_badge(painter, rect, state_color)
+            self._draw_badge(painter, target_rect, state_color)
             
         # 5. Action Layer
-        self._draw_actions(painter, rect)
+        self._draw_actions(painter, target_rect)
         
         # 6. Debug Layer
         if ENABLE_OVERLAY_DEBUG:
-            self._draw_debug(painter, rect)
+            self._draw_debug(painter, target_rect)
             
         painter.end()
 
@@ -84,7 +88,9 @@ class OverlayRenderer:
             painter.setBrush(Qt.NoBrush)
             
             path = QPainterPath()
-            path.addRoundedRect(QRectF(rect).adjusted(i, i, -i, -i), self.target.style.border_radius, self.target.style.border_radius)
+            # Expand outwards from the target_rect to draw the outer glow
+            expand = i * 2
+            path.addRoundedRect(QRectF(rect).adjusted(-expand, -expand, expand, expand), self.target.style.border_radius, self.target.style.border_radius)
             painter.drawPath(path)
 
     def _draw_border(self, painter, rect, color, profile):

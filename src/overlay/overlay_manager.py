@@ -72,7 +72,7 @@ class OverlayManager(QObject):
         
     @Slot(object)
     def on_target_registered(self, event: TargetRegisteredEvent):
-        target_id = event.target.id
+        target_id = event.target_id
         if target_id in self.targets:
             return
             
@@ -84,7 +84,7 @@ class OverlayManager(QObject):
         # 2. Create tracking model
         target = OverlayTarget(
             interaction_target_id=target_id,
-            friendly_name=event.target.properties.get("name", "Unknown"),
+            friendly_name="Target",
             badge_text=badge_text,
             current_state=OverlayState.VISIBLE
         )

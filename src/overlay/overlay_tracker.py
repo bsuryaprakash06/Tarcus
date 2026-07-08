@@ -53,10 +53,18 @@ class OverlayTracker(QObject):
         bounds = self.backend.get_bounds(target_id)
         if bounds:
             x, y, w, h = bounds
-            # Emit Signal to update the Qt GUI thread window immediately
-            self.bounds_updated.emit(target_id, x, y, w, h)
+            
+            # Padding for glow and borders (e.g., 20px on all sides)
+            padding = 20
+            px = x - padding
+            py = y - padding
+            pw = w + (padding * 2)
+            ph = h + (padding * 2)
+            
+            # Emit Signal to update the Qt GUI thread window
+            self.bounds_updated.emit(target_id, px, py, pw, ph)
             # Also publish an event for history/debugging if needed
             self.event_bus.publish_event(OverlayBoundsUpdated(
                 interaction_target_id=target_id,
-                x=x, y=y, width=w, height=h
+                x=px, y=py, width=pw, height=ph
             ))

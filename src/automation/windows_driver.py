@@ -151,6 +151,25 @@ class WindowsDriver(AutomationBackend):
         pass
 
     def get_bounds(self, target_id: str) -> Optional[tuple[int, int, int, int]]:
+        # Target ID is expected to be something like "target_window_12345" or "desktop"
+        if target_id == "desktop":
+            desktop = auto.GetRootControl()
+            rect = desktop.BoundingRectangle
+            return (rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
+            
+        try:
+            # We can extract the native handle from the target_id if we formatted it carefully,
+            # but ideally we'd fetch the InteractionNode from the InteractionGraph.
+            # For this fallback driver, let's assume target_id contains the handle if it's a window
+            parts = target_id.split("_")
+            if len(parts) >= 3 and parts[1] == "window":
+                handle = int(parts[2])
+                control = auto.ControlFromHandle(handle)
+                if control:
+                    rect = control.BoundingRectangle
+                    return (rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
+        except Exception:
+            pass
         return None
 
     def subscribe_to_window_events(self, callback) -> bool:
