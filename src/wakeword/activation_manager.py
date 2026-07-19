@@ -38,18 +38,35 @@ class ActivationManager:
 
     def _on_wake_word_detected(self, event: WakeWordDetected):
         with self._lock:
-            if self.state != WakeState.PASSIVE and self.state != WakeState.FOLLOW_UP:
+            # If we are currently processing or responding, treat this as an interruption
+            if self.state in [WakeState.PROCESSING, WakeState.RESPONDING]:
+                logger.info(f"Wake word detected during {self.state.value}. Interrupting!")
+                self._set_state(WakeState.INTERRUPTED)
+                # We can choose to clear the current session or keep it. Let's start fresh.
+                self.current_session = None
+            
+            # If we are already listening, just extend the session, no need to interrupt
+            elif self.state == WakeState.LISTENING:
+                logger.debug("Wake word detected while already listening. Extending session.")
+                if self.current_session:
+                    self.current_session.touch()
+                return
+                
+            elif self.state not in [WakeState.PASSIVE, WakeState.FOLLOW_UP, WakeState.INTERRUPTED]:
                 logger.debug(f"Ignored wake word while in state: {self.state.value}")
                 return
                 
             self._set_state(WakeState.WAKE_DETECTED)
             
-            # Create a new session
-            self.current_session = ActivationSession(
-                id=uuid.uuid4().hex[:8],
-                wake_phrase=event.phrase
-            )
-            logger.info(f"Started ActivationSession {self.current_session.id}")
+            # Create a new session if we don't have one
+            if not self.current_session:
+                self.current_session = ActivationSession(
+                    id=uuid.uuid4().hex[:8],
+                    wake_phrase=event.phrase
+                )
+                logger.info(f"Started ActivationSession {self.current_session.id}")
+            else:
+                self.current_session.touch()
             
             self._set_state(WakeState.ACKNOWLEDGING)
             self.response_manager.acknowledge()

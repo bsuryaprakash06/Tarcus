@@ -12,6 +12,7 @@ class WakeState(str, Enum):
     PROCESSING = "PROCESSING"
     RESPONDING = "RESPONDING"
     FOLLOW_UP = "FOLLOW_UP"
+    INTERRUPTED = "INTERRUPTED"
 
 class WakeResponseMode(str, Enum):
     VOICE = "VOICE"
