@@ -60,6 +60,15 @@ INITIAL_SILENCE_TIMEOUT = float(os.environ.get("INITIAL_SILENCE_TIMEOUT", "3.0")
 MIN_SPEECH_SECONDS = float(os.environ.get("MIN_SPEECH_SECONDS", "0.5"))
 MIC_ENERGY_THRESHOLD = float(os.environ.get("MIC_ENERGY_THRESHOLD", "0.05"))
 
+# Wake Word Settings
+ENABLE_WAKEWORD = os.environ.get("ENABLE_WAKEWORD", "True").lower() == "true"
+WAKEWORD_PROVIDER = os.environ.get("WAKEWORD_PROVIDER", "openwakeword")
+WAKE_PHRASES = os.environ.get("WAKE_PHRASES", "hey tarcus,hello tarcus").split(",")
+WAKEWORD_CONFIDENCE = float(os.environ.get("WAKEWORD_CONFIDENCE", "0.65"))
+CONVERSATION_TIMEOUT = float(os.environ.get("CONVERSATION_TIMEOUT", "12.0"))
+RECORDING_TIMEOUT = float(os.environ.get("RECORDING_TIMEOUT", "5.0"))
+WAKE_RESPONSE_MODE = os.environ.get("WAKE_RESPONSE_MODE", "CHIME")
+
 # Speech Normalization Settings
 ENABLE_SPEECH_NORMALIZATION = os.environ.get("ENABLE_SPEECH_NORMALIZATION", "True").lower() == "true"
 ENABLE_ALIAS_EXPANSION = os.environ.get("ENABLE_ALIAS_EXPANSION", "True").lower() == "true"

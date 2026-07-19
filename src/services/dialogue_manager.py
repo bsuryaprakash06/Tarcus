@@ -3,6 +3,8 @@ from src.utils.logger import get_logger
 from src.services.context_service import ContextService
 from src.models.dialogue_state import ConversationState, DialogueState, PendingClarification, PendingConfirmation
 from src.dialogue.merge_engine import HybridMergeEngine
+from src.events.pipeline_events import PipelineEventBus
+from src.wakeword.wakeword_events import SessionExpired
 
 logger = get_logger("dialogue.manager")
 
@@ -13,6 +15,14 @@ class DialogueManager:
         self.context_service = ContextService()
         self.conversation_state = ConversationState()
         self.merge_engine = HybridMergeEngine()
+        self.event_bus = PipelineEventBus()
+        
+        # When the activation session times out, clear the dialogue context
+        self.event_bus.subscribe_event(SessionExpired, self._on_session_expired)
+        
+    def _on_session_expired(self, event: SessionExpired):
+        logger.info(f"ActivationSession {event.session_id} expired. Clearing dialogue context.")
+        self.clear_session()
         
     def set_pending_clarification(self, original_text: str, intent: str, reason: str):
         """Suspends an ambiguous request awaiting user reply."""

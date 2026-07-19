@@ -2,3 +2,5 @@
 # E.g.
 # openai
 # sounddevice
+
+openwakeword>=0.5.1

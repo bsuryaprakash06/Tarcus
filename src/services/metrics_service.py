@@ -42,6 +42,16 @@ class MetricsService:
         self.verification_latencies = []
         self.verification_failures = 0
         self.recovery_attempts = 0
+        
+        # Wake Word Metrics
+        self.wake_false_positives = 0
+        self.wake_false_negatives = 0
+        self.wake_confidences = []
+        self.wake_response_times = []
+        self.active_session_lengths = []
+        self.follow_up_counts = []
+        self.cpu_usages = []
+        self.dropped_audio_frames = 0
     def record_planner_latency(self, latency: float) -> None:
         if ENABLE_METRICS:
             self.planner_latencies.append(latency)
@@ -64,6 +74,23 @@ class MetricsService:
         if ENABLE_METRICS:
             self.recovery_attempts += 1
             
+    def record_wake_word(self, confidence: float, false_positive: bool = False, false_negative: bool = False):
+        if not ENABLE_METRICS: return
+        if false_positive: self.wake_false_positives += 1
+        elif false_negative: self.wake_false_negatives += 1
+        else: self.wake_confidences.append(confidence)
+
+    def record_wake_response_time(self, latency: float):
+        if ENABLE_METRICS: self.wake_response_times.append(latency)
+
+    def record_activation_session(self, length: float, follow_ups: int):
+        if ENABLE_METRICS:
+            self.active_session_lengths.append(length)
+            self.follow_up_counts.append(follow_ups)
+
+    def record_audio_drop(self, count: int = 1):
+        if ENABLE_METRICS: self.dropped_audio_frames += count
+
     def record_execution_latency(self, latency: float) -> None:
         if ENABLE_METRICS:
             self.execution_latencies.append(latency)

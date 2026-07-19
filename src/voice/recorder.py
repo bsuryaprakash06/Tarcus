@@ -27,30 +27,28 @@ def record_audio(context = None, duration: int = 5) -> Path:
         RecordingError: If recording or saving the file fails.
     """
     try:
+        from src.audio.audio_capture_service import AudioCaptureService
+        audio_service = AudioCaptureService()
         vad = VoiceActivityDetector()
         audio_frames = []
 
-        def audio_callback(indata, frames, time_info, status):
-            if status:
-                logger.warning(f"Audio stream status: {status}")
-            
-            # Copy the frame data because indata memory is reused
-            audio_frames.append(indata.copy())
-            vad.process_frame(indata)
+        # We subscribe to the shared audio stream
+        q = audio_service.subscribe("recorder", queue_size=200)
 
         logger.info("Starting audio stream recording...")
         
-        # Start the InputStream
-        with sd.InputStream(
-            samplerate=SAMPLE_RATE,
-            channels=CHANNELS,
-            dtype="int16",
-            callback=audio_callback
-        ):
-            # Block the main thread while the VAD determines we should continue
-            while vad.should_continue():
-                time.sleep(0.1)
+        # Block the main thread while the VAD determines we should continue
+        while vad.should_continue():
+            try:
+                import queue
+                # Wait for frames from the shared queue
+                frame = q.get(timeout=0.1)
+                audio_frames.append(frame)
+                vad.process_frame(frame)
+            except queue.Empty:
+                pass
 
+        audio_service.unsubscribe("recorder")
         logger.info("Recording finished.")
         
         if context:
