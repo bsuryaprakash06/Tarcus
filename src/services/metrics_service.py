@@ -43,15 +43,26 @@ class MetricsService:
         self.verification_failures = 0
         self.recovery_attempts = 0
         
-        # Wake Word Metrics
+        # Wake Word & Audio Metrics
         self.wake_false_positives = 0
         self.wake_false_negatives = 0
         self.wake_confidences = []
         self.wake_response_times = []
+        
+        # New Detailed Audio Metrics
+        self.wake_detection_latencies = []
+        self.vad_latencies = []
+        self.speech_segmentation_times = []
+        self.stt_latencies = []
+        self.tts_generation_times = []
+        self.playback_start_delays = []
+        self.barge_in_response_times = []
+        self.dropped_audio_frames = 0
+        self.audio_queue_sizes = []
+        
         self.active_session_lengths = []
         self.follow_up_counts = []
         self.cpu_usages = []
-        self.dropped_audio_frames = 0
     def record_planner_latency(self, latency: float) -> None:
         if ENABLE_METRICS:
             self.planner_latencies.append(latency)

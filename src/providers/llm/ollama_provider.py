@@ -1,6 +1,6 @@
 import time
 import requests
-from src.providers.base_provider import BaseProvider, ProviderResponse
+from .base import BaseProvider, ProviderResponse
 from src.utils.settings import MODEL_NAME, BASE_URL
 from src.utils.logger import get_logger
 

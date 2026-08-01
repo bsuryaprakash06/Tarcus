@@ -5,6 +5,7 @@ from src.models.wakeword import WakeState, ActivationSession
 from src.wakeword.wakeword_events import WakeWordDetected, SessionExpired, StateChanged
 from src.wakeword.activation_response_manager import ActivationResponseManager
 from src.events.pipeline_events import PipelineEventBus
+from src.audio.audio_events import BargeInDetected
 from src.utils.logger import get_logger
 
 logger = get_logger("wakeword.activation_manager")
@@ -41,6 +42,7 @@ class ActivationManager:
             # If we are currently processing or responding, treat this as an interruption
             if self.state in [WakeState.PROCESSING, WakeState.RESPONDING]:
                 logger.info(f"Wake word detected during {self.state.value}. Interrupting!")
+                self.event_bus.publish_event(BargeInDetected())
                 self._set_state(WakeState.INTERRUPTED)
                 # We can choose to clear the current session or keep it. Let's start fresh.
                 self.current_session = None

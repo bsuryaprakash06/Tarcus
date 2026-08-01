@@ -4,3 +4,5 @@
 # sounddevice
 
 openwakeword>=0.5.1
+onnxruntime>=1.16.0
+pydantic>=2.0.0

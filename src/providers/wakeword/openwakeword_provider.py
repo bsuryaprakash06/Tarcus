@@ -1,28 +1,12 @@
-from abc import ABC, abstractmethod
 from typing import Optional, List
 import numpy as np
-from src.models.wakeword import WakePhrase
 from src.utils.logger import get_logger
 from src.utils.settings import WAKE_PHRASES, WAKEWORD_CONFIDENCE
+from .base import BaseWakeWordProvider, WakeDetectionResult
 
-logger = get_logger("wakeword.detector")
+logger = get_logger("wakeword.openwakeword_provider")
 
-class WakeDetectionResult:
-    def __init__(self, detected: bool, phrase: Optional[WakePhrase] = None):
-        self.detected = detected
-        self.phrase = phrase
-
-class WakeWordDetector(ABC):
-    """Abstract interface for wake word detectors."""
-    
-    @abstractmethod
-    def detect(self, audio_frame: np.ndarray) -> WakeDetectionResult:
-        """
-        Process an audio frame (typically 16kHz, 16-bit mono) and return a detection result.
-        """
-        pass
-
-class OpenWakeWordDetector(WakeWordDetector):
+class OpenWakeWordProvider(BaseWakeWordProvider):
     """OpenWakeWord based detector."""
     
     def __init__(self):
@@ -65,11 +49,11 @@ class OpenWakeWordDetector(WakeWordDetector):
                 logger.info(f"Wake word '{mdl_name}' detected with confidence: {score:.3f}")
                 # We map it to our configured WAKE_PHRASES[0] for semantic consistency
                 phrase_name = WAKE_PHRASES[0] if WAKE_PHRASES else "hey tarcus"
-                return WakeDetectionResult(True, WakePhrase(phrase=phrase_name, confidence=score))
+                return WakeDetectionResult(True, phrase=phrase_name, confidence=score)
                 
         return WakeDetectionResult(False)
 
-class DummyDetector(WakeWordDetector):
+class DummyWakeWordProvider(BaseWakeWordProvider):
     """A dummy detector that triggers periodically or via API for testing."""
     def __init__(self):
         self.counter = 0
