@@ -63,6 +63,16 @@ class MetricsService:
         self.active_session_lengths = []
         self.follow_up_counts = []
         self.cpu_usages = []
+        
+        # Browser Automation Metrics
+        self.browser_launch_times = []
+        self.browser_navigation_times = []
+        self.page_load_times = []
+        self.browser_session_count = 0
+        self.browser_tab_count = 0
+        self.navigation_successes = 0
+        self.navigation_failures = 0
+        self.browser_failures = 0
     def record_planner_latency(self, latency: float) -> None:
         if ENABLE_METRICS:
             self.planner_latencies.append(latency)

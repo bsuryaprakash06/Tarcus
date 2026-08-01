@@ -134,6 +134,14 @@ DEFAULT_GLOW_RADIUS = int(os.environ.get("DEFAULT_GLOW_RADIUS", "12"))
 ENABLE_OVERLAY_ANIMATIONS = os.environ.get("ENABLE_OVERLAY_ANIMATIONS", "True").lower() == "true"
 ENABLE_OVERLAY_DEBUG = os.environ.get("ENABLE_OVERLAY_DEBUG", "False").lower() == "true"
 
+# Web Browser Automation Settings
+ENABLE_BROWSER_AUTOMATION = os.environ.get("ENABLE_BROWSER_AUTOMATION", "True").lower() == "true"
+DEFAULT_BROWSER = os.environ.get("DEFAULT_BROWSER", "chromium").lower()
+HEADLESS_BROWSER = os.environ.get("HEADLESS_BROWSER", "False").lower() == "true"
+PAGE_LOAD_TIMEOUT = int(os.environ.get("PAGE_LOAD_TIMEOUT", "30000"))
+ENABLE_BROWSER_EVENTS = os.environ.get("ENABLE_BROWSER_EVENTS", "True").lower() == "true"
+ENABLE_SESSION_RESTORE = os.environ.get("ENABLE_SESSION_RESTORE", "True").lower() == "true"
+
 # Ensure runtime directories exist
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
 SOUNDS_DIR.mkdir(parents=True, exist_ok=True)
